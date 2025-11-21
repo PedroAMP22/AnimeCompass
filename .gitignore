@@ -5,3 +5,4 @@ data/*
 !data/anime_ontology_ext.ttl
 out/*
 !out/anime_ontology.html
+ontology/2025-11.nt
