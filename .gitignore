@@ -5,4 +5,5 @@ data/*
 !data/anime_ontology_ext.ttl
 out/*
 !out/anime_ontology.html
+#added because too heavy
 ontology/2025-11.nt
