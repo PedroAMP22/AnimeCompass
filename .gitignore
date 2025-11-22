@@ -2,8 +2,6 @@ requirements.txt
 venv
 __pycache__
 data/*
-!data/anime_ontology_ext.ttl
+!data/grafo_fusionado.ttl
 out/*
-!out/anime_ontology.html
-#added because too heavy
-ontology/2025-11.nt
+!out/grafo_fusionado.ttl
