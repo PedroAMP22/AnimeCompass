@@ -2,6 +2,6 @@ requirements.txt
 venv
 __pycache__
 data/*
-!data/grafo_fusionado.ttl
 out/*
-!out/grafo_fusionado.ttl
+graph_embeddings/*
+
