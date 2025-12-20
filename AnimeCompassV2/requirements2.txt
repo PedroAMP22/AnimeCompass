@@ -1,0 +1,16 @@
+# Servidor y API
+fastapi
+uvicorn
+requests
+pydantic
+
+# Procesamiento de Datos y Tensores
+numpy
+pandas
+torch
+
+# Knowledge Graph (Tu modelo TransR)
+pykeen
+
+# Interfaz de Usuario
+streamlit
