@@ -1,19 +1,24 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from kg_engine import KGEngine
 import uvicorn
+from kg_engine import KGEngine
 
-app = FastAPI()
-# Inicializamos tu sistema con la carpeta de tus archivos .pt y .pkl
-kg = KGEngine(folder_path="../anime_recommender_final")
+app = FastAPI(title="Anime Hybrid Server")
+
+# Inicializar motor apuntando a la carpeta hermana
+# "../anime_recommender_final" significa "sube un nivel y entra ahí"
+try:
+    kg = KGEngine(relative_folder_path="../anime_recommender_final")
+except Exception as e:
+    print(f"Error iniciando servidor: {e}")
 
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 5
 
 @app.post("/execute/search_knowledge_graph")
-def execute_search(request: QueryRequest):
-    results = kg.search_top_k(request.query, request.top_k)
+def search(req: QueryRequest):
+    results = kg.search_top_k(req.query, req.top_k)
     return {"results": results}
 
 if __name__ == "__main__":
