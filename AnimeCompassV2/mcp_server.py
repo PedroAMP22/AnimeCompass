@@ -15,10 +15,11 @@ except Exception as e:
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 5
+    exclude: list[str] = []
 
 @app.post("/execute/search_knowledge_graph")
 def search(req: QueryRequest):
-    results = kg.search_top_k(req.query, req.top_k)
+    results = kg.search_top_k(req.query, req.top_k, req.exclude)
     return {"results": results}
 
 if __name__ == "__main__":

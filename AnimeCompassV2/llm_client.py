@@ -102,3 +102,24 @@ class OllamaClient:
     def prompt(self, system, user):
         full = f"System: {system}\nUser: {user}"
         return self._call(full)
+    
+    def chat(self, system, history, current_user_msg):
+        """
+        Construye un prompt con todo el historial de la conversación.
+        """
+        # 1. Iniciamos con las instrucciones del sistema
+        full_prompt = f"System: {system}\n\n"
+        
+        recent_history = history[-10:]
+        # 2. Añadimos el historial previo
+        for msg in recent_history:
+            role = "User" if msg["role"] == "user" else "Assistant"
+            content = msg["content"]
+            # Añadimos el turno al prompt
+            full_prompt += f"{role}: {content}\n"
+            
+        # 3. Añadimos el mensaje actual del usuario
+        full_prompt += f"User: {current_user_msg}\nAssistant:"
+        
+        # 4. Enviamos todo el bloque al LLM
+        return self._call(full_prompt)

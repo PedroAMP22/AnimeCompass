@@ -151,8 +151,11 @@ class KGEngine:
             return f
         except: return 0.0
 
-    def search_top_k(self, query_text, k=5):
-        print(f"\n🔍 Buscando: '{query_text}'")
+    def search_top_k(self, query_text, k=5, exclude_list= None):
+        if exclude_list is None:
+            exclude_list = []
+
+        print(f"\n🔍 Buscando: '{query_text}' (Excluyendo {len(exclude_list)} items)")
         target_name = self._find_best_match(query_text)
         if not target_name: 
             print("❌ No encontrado en DF")
@@ -170,6 +173,7 @@ class KGEngine:
         for idx, row in self.df.iterrows():
             cand_name = row['Name']
             if cand_name == target_name: continue
+            if cand_name in exclude_list: continue
             
             # 1. TransR (0.8)
             transr_sim = 0.0
