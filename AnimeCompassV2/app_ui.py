@@ -19,7 +19,10 @@ if "total_likes" not in st.session_state:
     st.session_state.total_likes = 0  
 
 if "total_recs" not in st.session_state:
-    st.session_state.total_recs = 0   
+    st.session_state.total_recs = 0
+
+if "liked_animes" not in st.session_state:
+    st.session_state.liked_animes = []
 
 def mark_as_seen(anime_name):
     if "excluded_animes" not in st.session_state:
@@ -27,10 +30,22 @@ def mark_as_seen(anime_name):
     
     if anime_name not in st.session_state.excluded_animes:
         st.session_state.excluded_animes.append(anime_name)
-        st.toast(f"👁️ Ocultado: {anime_name} (No saldrá más)")
+        
+        if st.session_state.total_recs > 0:
+            st.session_state.total_recs -= 1
+            
+        st.toast(f"👁️ Ocultado: {anime_name} (Restado de métricas)")
 
-def mark_as_liked():
-    st.session_state.total_likes += 1
+def mark_as_liked(anime_name):
+    if "liked_animes" not in st.session_state:
+        st.session_state.liked_animes = []
+        
+    if anime_name not in st.session_state.liked_animes:
+        st.session_state.total_likes += 1
+        st.session_state.liked_animes.append(anime_name)
+        st.toast(f"❤️ ¡Te gusta {anime_name}!")
+    else:
+        st.toast(f"Ya habías dado like a {anime_name}", icon="ℹ️")
 
 API_URL = "http://localhost:8000/execute/search_knowledge_graph"
 
@@ -63,7 +78,7 @@ with st.sidebar:
         st.session_state.total_likes = 0
         st.session_state.total_recs = 0
         st.session_state.excluded_animes = []
-        st.rerun()
+        st.session_state.liked_animes = []
 
 st.title("🧭 AnimeCompass V2")
 
@@ -83,11 +98,12 @@ for msg_idx, msg in enumerate(st.session_state.messages):
                         st.button("❤️", 
                                   key=f"h_like_{msg_idx}_{idx}", 
                                   help="Me gusta",
-                                  on_click=mark_as_liked)
+                                  on_click=mark_as_liked,
+                                  args=(item['name'],))
                     with b2:
                         st.button("👁️", 
                                   key=f"h_seen_{msg_idx}_{idx}", 
-                                  help="Ya lo he visto",
+                                  help="Ya lo he visto (No contar)",
                                   on_click=mark_as_seen,
                                   args=(item['name'],))
         
@@ -120,7 +136,7 @@ if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
                         payload = {
                             "query": anime_name, 
                             "top_k": top_k_selector,
-                            "exclude": st.session_state.excluded_animes # <--- Enviamos lo que ya hemos visto
+                            "exclude": st.session_state.excluded_animes
                         }
                         res = requests.post(API_URL, json=payload)
 
@@ -193,29 +209,9 @@ if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
                 cols = st.columns(len(gallery_data))
                 for idx, item in enumerate(gallery_data):
                     with cols[idx]:
-                        # Imagen y Título
                         st.image(item['image'], width="stretch")
                         st.caption(f"**{idx+1}. [{item['name']}]({item['url']})**")
                         st.progress(item['score'], text=f"Sim: {item['score']:.2f}")
-                        
-                        # Botones de Feedback
-                        b1, b2 = st.columns(2)
-                        with b1:
-                            # Like (Feedback positivo)
-                            if st.button("❤️", 
-                                        key=f"like_{item['name']}_{len(st.session_state.messages)}", 
-                                        help="Me gusta",
-                                        on_click=mark_as_liked):
-                                st.toast(f"¡Te gusta {item['name']}!")
-                        
-                        with b2:
-                            # Seen (Feedback negativo / Ya visto)
-                            # Usa on_click para actualizar estado inmediatamente
-                            st.button("👁️", 
-                                      key=f"seen_{item['name']}_{len(st.session_state.messages)}", 
-                                      help="Ya lo he visto (No recomendar más)",
-                                      on_click=mark_as_seen,
-                                      args=(item['name'],))
 
         else:
             sys_prompt = "Responde como asistente normal."
