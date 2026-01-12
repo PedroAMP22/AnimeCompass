@@ -3,234 +3,182 @@ import requests
 from llm_client import OllamaClient
 from jikan_client import JikanClient 
 
+# --- CONFIGURACIÓN Y ESTADO ---
+st.set_page_config(page_title="AnimeCompass V2", layout="wide", page_icon="🧭")
 
-st.set_page_config(page_title="AnimeCompass V2", layout="wide")
+# Inicialización de estado
+init_states = {
+    "llm": OllamaClient(model="llama3.2"),
+    "messages": [],
+    "excluded_animes": [],
+    "total_likes": 0,
+    "total_recs": 0,
+    "ya_interactuado": set(),
+    "rr_sum": 0.0,   
+    "queries_con_like": 0,
+    "sesiones_con_feedback": set()
+}
 
-if "llm" not in st.session_state:
-    st.session_state.llm = OllamaClient(model="llama3.2") 
+for key, value in init_states.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "excluded_animes" not in st.session_state:
-    st.session_state.excluded_animes = []
-
-if "total_likes" not in st.session_state:
-    st.session_state.total_likes = 0  
-
-if "total_recs" not in st.session_state:
-    st.session_state.total_recs = 0
-
-if "liked_animes" not in st.session_state:
-    st.session_state.liked_animes = []
-
-def mark_as_seen(anime_name):
-    if "excluded_animes" not in st.session_state:
-        st.session_state.excluded_animes = []
-    
-    if anime_name not in st.session_state.excluded_animes:
+# --- FUNCIONES DE FEEDBACK ---
+def mark_as_disliked(anime_name):
+    if anime_name not in st.session_state.ya_interactuado:
         st.session_state.excluded_animes.append(anime_name)
-        
-        if st.session_state.total_recs > 0:
-            st.session_state.total_recs -= 1
+        st.session_state.ya_interactuado.add(anime_name)
+        st.toast(f"👎 Ocultando: {anime_name}")
+
+def mark_as_liked(anime_name, rank, msg_idx):
+    """
+    rank: posición en la lista (1, 2, 3...)
+    msg_idx: identificador de la búsqueda para no duplicar MRR
+    """
+    if anime_name not in st.session_state.ya_interactuado:
+        # Lógica de MRR: Solo cuenta el primer Like de cada bloque de recomendación
+        if msg_idx not in st.session_state.sesiones_con_feedback:
+            reciprocal_rank = 1.0 / rank
+            st.session_state.rr_sum += reciprocal_rank
+            st.session_state.queries_con_like += 1
+            st.session_state.sesiones_con_feedback.add(msg_idx)
             
-        st.toast(f"👁️ Ocultado: {anime_name} (Restado de métricas)")
-
-def mark_as_liked(anime_name):
-    if "liked_animes" not in st.session_state:
-        st.session_state.liked_animes = []
-        
-    if anime_name not in st.session_state.liked_animes:
         st.session_state.total_likes += 1
-        st.session_state.liked_animes.append(anime_name)
-        st.toast(f"❤️ ¡Te gusta {anime_name}!")
-    else:
-        st.toast(f"Ya habías dado like a {anime_name}", icon="ℹ️")
+        st.session_state.ya_interactuado.add(anime_name)
+        st.toast(f"❤️ ¡Añadido a favoritos! (Rank: {rank})")
 
-API_URL = "http://localhost:8000/execute/search_knowledge_graph"
-
-
+# --- SIDEBAR (MÉTRICAS) ---
 with st.sidebar:
-    st.header("📊 Panel de Evaluación")
-
-    top_k_selector = st.slider("Nº de Recomendaciones", min_value=1, max_value=10, value=5)
-    
-    # Cálculo de Precisión
-    if st.session_state.total_recs > 0:
-        precision = (st.session_state.total_likes / st.session_state.total_recs) * 100
-    else:
-        precision = 0.0
-        
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Likes ❤️", st.session_state.total_likes)
-    with col2:
-        st.metric("Vistos 👁️", st.session_state.total_recs)
+    st.header("📊 Panel de Control")
+    top_k_selector = st.slider("Nº de Recomendaciones", 1, 10, 5)
     
     st.divider()
-    st.metric("🎯 Precision Actual", f"{precision:.1f}%")
-    if precision > 0:
-        st.progress(min(precision / 100, 1.0))
+    st.subheader("📈 Calidad (IR Metrics)")
     
-    st.caption("Precision = Likes / Total Mostrados")
+    # 1. User Precision
+    precision = (st.session_state.total_likes / st.session_state.total_recs * 100) if st.session_state.total_recs > 0 else 0
+    st.metric("🎯 User Precision", f"{precision:.1f}%", help="Porcentaje total de likes sobre recomendaciones mostradas.")
     
-    if st.button("🗑️ Resetear Métricas"):
-        st.session_state.total_likes = 0
-        st.session_state.total_recs = 0
-        st.session_state.excluded_animes = []
-        st.session_state.liked_animes = []
+    # 2. MRR (Mean Reciprocal Rank)
+    mrr = (st.session_state.rr_sum / st.session_state.queries_con_like) if st.session_state.queries_con_like > 0 else 0
+    st.metric("🏆 MRR", f"{mrr:.3f}", help="Mide qué tan arriba aparecen los animes que te gustan. 1.0 es perfecto.")
+    st.progress(min(mrr, 1.0))
 
+    # 3. Confianza del Grafo
+    last_msg = next((m for m in reversed(st.session_state.messages) if "data" in m and m["data"]), None)
+    if last_msg:
+        avg_score = sum(item.get('score', 0) for item in last_msg["data"]) / len(last_msg["data"])
+        st.metric("🔗 Confianza Grafo", f"{avg_score:.3f}")
+
+    st.divider()
+    if st.button("🗑️ Reiniciar Sesión", width='stretch'):
+        for key in init_states.keys():
+            if key == "ya_interactuado": st.session_state[key] = set()
+            elif key == "sesiones_con_feedback": st.session_state[key] = set()
+            else: st.session_state[key] = init_states[key]
+        st.rerun()
+
+# --- INTERFAZ PRINCIPAL ---
 st.title("🧭 AnimeCompass V2")
+st.info("Recomendaciones de anime utilizando Inteligencia Artificial y Grafos de Conocimiento.")
 
-# Historial
+# Renderizado de Historial
 for msg_idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        # Si el mensaje tiene galería de imágenes guardada, la mostramos
+        
+        # Mostrar Galería si existe
         if "gallery" in msg and msg["gallery"]:
             cols = st.columns(len(msg["gallery"]))
             for idx, item in enumerate(msg["gallery"]):
                 with cols[idx]:
-                    st.image(item["image"], width="stretch")
-                    st.caption(f"[{item['name']}]({item['url']})")
+                    st.image(item["image"], width='stretch')
+                    st.caption(f"**{item['name']}**")
+                    
+                    # Estado del botón
+                    interactuado = item['name'] in st.session_state.ya_interactuado
                     b1, b2 = st.columns(2)
-                    with b1:
-                        st.button("❤️", 
-                                  key=f"h_like_{msg_idx}_{idx}", 
-                                  help="Me gusta",
-                                  on_click=mark_as_liked,
-                                  args=(item['name'],))
-                    with b2:
-                        st.button("👁️", 
-                                  key=f"h_seen_{msg_idx}_{idx}", 
-                                  help="Ya lo he visto (No contar)",
-                                  on_click=mark_as_seen,
-                                  args=(item['name'],))
+                    
+                    # Botón Like
+                    b1.button("❤️", key=f"lk_{msg_idx}_{idx}", 
+                              on_click=mark_as_liked, 
+                              args=(item['name'], idx + 1, msg_idx),
+                              disabled=interactuado)
+                    
+                    # Botón Dislike
+                    b2.button("👎", key=f"dk_{msg_idx}_{idx}", 
+                              on_click=mark_as_disliked, 
+                              args=(item['name'],),
+                              disabled=interactuado)
         
+        # Mostrar desglose técnico
         if "data" in msg and msg["data"]:
-            with st.expander("Ver desglose de puntuación"):
+            with st.expander("Detalles técnicos del Grafo"):
                 st.table(msg["data"])
 
-# Input
-if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
+# --- LÓGICA DE ENTRADA ---
+if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    st.chat_message("user").write(prompt)
 
     with st.chat_message("assistant"):
-        response_text = ""
         table_data = []
-        gallery_data = [] # Lista para guardar las imágenes
-        
-        # 1. Router
+        gallery_data = []
+        sys_prompt = "Responde amigablemente como un experto en anime."
+
+        # 1. Router y Extracción
         if st.session_state.llm.should_use_tool(prompt):
-            
-            with st.status("Procesando solicitud y descargando imágenes...", expanded=True) as status:
-                st.write("🧠 Detectando intención... (Anime)")
+            with st.status("Consultando Grafo de Conocimiento...", expanded=True) as status:
                 anime_name = st.session_state.llm.extract_anime_name(prompt)
                 
                 if anime_name and anime_name != "NULL":
-                    st.write(f"🔍 Buscando en grafo: **{anime_name}**")
-                    
                     try:
+                        API_URL = "http://localhost:8000/execute/search_knowledge_graph"
                         payload = {
                             "query": anime_name, 
                             "top_k": top_k_selector,
                             "exclude": st.session_state.excluded_animes
                         }
-                        res = requests.post(API_URL, json=payload)
-
+                        res = requests.post(API_URL, json=payload, timeout=60)
                         results = res.json().get("results", [])
-                        
+
                         if results:
                             st.session_state.total_recs += len(results)
-
-                            context = ""
+                            table_data = results
+                            context_text = ""
                             
-                            # FASE DE CARGA (Aquí solo descargamos datos, NO dibujamos)
-                            for i, r in enumerate(results):
-                                st.write(f"🖼️ Buscando carátula para: {r['name']}...")
-                                
-                                # Llamamos a Jikan
-                                jikan_data = JikanClient.get_anime_info(r['name'])
-                                
-                                # Guardamos en la lista
+                            for r in results:
+                                status.write(f"🎞️ Obteniendo info de: {r['name']}")
+                                jikan = JikanClient.get_anime_info(r['name'])
                                 gallery_data.append({
                                     "name": r['name'],
-                                    "image": jikan_data['image_url'],
-                                    "url": jikan_data['url'],
-                                    "score": r['score'],
-                                    "details": r['details']
+                                    "image": jikan['image_url'],
+                                    "url": jikan['url'],
+                                    "score": r['score']
                                 })
+                                context_text += f"- {r['name']}: {r['details']}\n"
 
-                                # Texto para el LLM
-                                context += f"""
-                                === RANKING #{i+1} ===
-                                - ANIME: {r['name']}
-                                  * Score: {r['score']:.3f}
-                                  * Detalles: {r['details']}
-                                """
-
-                            sys_prompt = f"""
-                            Actúa como un experto en anime amigable y conocedor. Acabas de consultar nuestra base de datos de similitud y tienes los resultados listos.
-                            
-                            TUS INSTRUCCIONES:
-                            1. **El Orden es Clave:** Recomienda los animes en el orden exacto que te doy abajo (del #1 al #5). El #1 es la recomendación estrella.
-                            2. **Tono Natural:** No hables como un robot ("Basado en los datos..."). Habla como un fan recomendando a otro fan. Usa frases como: "Tengo unas recomendaciones geniales", "Lo más parecido que he encontrado es...", "Si te gusta ese estilo, tienes que ver...".
-                            3. **Argumenta:** Usa los detalles (géneros, año, etc.) para explicar por qué se parecen, pero no hace falta que digas los números exactos (ya salen en la tabla). Di cosas como "tiene una ambientación muy similar" o "coinciden mucho en los géneros de acción".
-                            4. **Fidelidad:** Solo recomienda los animes de la lista.
-                            
-                            LISTA DE RECOMENDACIONES (ORDENADA):
-                            {context}
-                            
-                            Responde al usuario de forma fluida, empezando por la mejor opción.
-                            """
-                            
-                            table_data = results
-                            
-                            # CERRAMOS EL STATUS VISUALMENTE
-                            status.update(label="¡Análisis completado!", state="complete", expanded=False)
-                            
+                            sys_prompt = f"""Actúa como experto. Recomienda estos animes en orden:
+                            {context_text}
+                            Usa un tono entusiasta y justifica por qué se parecen al original."""
+                            status.update(label="¡Recomendaciones listas!", state="complete", expanded=False)
                         else:
-                            status.update(label="No encontrado / Sin más resultados", state="error")
-                            sys_prompt = f"No encontré '{anime_name}' en la base de datos."
-                    
+                            status.update(label="No encontré resultados similares.", state="error")
                     except Exception as e:
-                        status.update(label="Error de conexión", state="error")
-                        sys_prompt = f"Error técnico: {e}"
+                        status.update(label=f"Error de conexión: {e}", state="error")
                 else:
-                    status.update(label="No entendí el nombre", state="error")
-                    sys_prompt = "Pide al usuario que especifique el anime."
+                    status.update(label="No pude identificar un anime en tu mensaje.", state="error")
 
-            if gallery_data:
-                st.write("---")
-                st.subheader(f"Recomendaciones para: {anime_name}")
-                
-                cols = st.columns(len(gallery_data))
-                for idx, item in enumerate(gallery_data):
-                    with cols[idx]:
-                        st.image(item['image'], width="stretch")
-                        st.caption(f"**{idx+1}. [{item['name']}]({item['url']})**")
-                        st.progress(item['score'], text=f"Sim: {item['score']:.2f}")
-
-        else:
-            sys_prompt = "Responde como asistente normal."
-
-        response_text = st.session_state.llm.chat(
-            sys_prompt, 
-            st.session_state.messages[:-1], 
-            prompt
-        )
+        # 2. Generación de Respuesta
+        full_response = st.session_state.llm.chat(sys_prompt, st.session_state.messages[:-1], prompt)
+        st.markdown(full_response)
         
-        # --- GUARDADO FINAL ---
-        # Aquí guardamos texto, galería Y LA TABLA (table_data)
+        # 3. Guardado en historial
         st.session_state.messages.append({
-            "role": "assistant", 
-            "content": response_text,
-            "data": table_data, # <--- Se guarda aquí
-            "gallery": gallery_data 
+            "role": "assistant",
+            "content": full_response,
+            "data": table_data,
+            "gallery": gallery_data
         })
         
-        # --- RECARGA ---
-        # Al recargar, el bucle del paso 4 pintará la tabla automáticamente
         st.rerun()

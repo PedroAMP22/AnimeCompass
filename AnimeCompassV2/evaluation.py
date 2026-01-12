@@ -1,63 +1,42 @@
-import pandas as pd
-import numpy as np
-from kg_engine import KGEngine
-
-# Inicializamos el motor
-kg = KGEngine(relative_folder_path="../anime_recommender_final")
-
-def calculate_precision_at_k(test_anime_name, k=5):
-    """
-    Calcula la precisión basándose en si las recomendaciones comparten
-    al menos un género con el anime original.
-    (Basado en Diapositiva 50: Precision@N)
-    """
-    # 1. Obtenemos los datos del anime 'query' (Ground Truth)
+def evaluate_anime(test_anime_name, k=5):
     target_row = kg.df[kg.df['Name'] == test_anime_name]
     if target_row.empty:
-        return 0.0
+        return None
     
-    target_genres = set(target_row.iloc[0]['Genres']) # Asumiendo que es una lista o set
-    
-    # 2. Pedimos recomendaciones
+    target_genres = set(target_row.iloc[0]['Genres'])
+    # Importante: Que el top_k no incluya al propio anime testeado
     recommendations = kg.search_top_k(test_anime_name, k=k)
     
     hits = 0
-    for rec in recommendations:
-        # Buscamos los géneros del recomendado en el DF
-        rec_row = kg.df[kg.df['Name'] == rec['name']].iloc[0]
-        rec_genres = set(rec_row['Genres'])
+    first_hit_rank = None
+    transr_scores = []
+
+    for i, rec in enumerate(recommendations):
+        # Evitar contar el mismo anime si el motor lo devuelve
+        if rec['name'] == test_anime_name:
+            continue
+
+        rec_genres = set(genres_dict.get(rec['name'], [])) # Usando el dict optimizado
         
-        # CRITERIO DE RELEVANCIA:
-        # Si comparten al menos un género, lo consideramos "Relevante" (Hit)
-        if not target_genres.isdisjoint(rec_genres):
+        # Criterio de acierto: Jaccard > 20% de coincidencia
+        intersection = target_genres.intersection(rec_genres)
+        if len(intersection) > 0: # O usa len(intersection)/len(target_genres.union(rec_genres)) > 0.2
             hits += 1
-            
-    # Precision = Relevantes / Recomendados
-    return hits / k
+            if first_hit_rank is None:
+                first_hit_rank = i + 1 
+        
+        transr_scores.append(rec['transr'])
 
-def run_evaluation_suite():
-    print("\n📊 --- INICIANDO EVALUACIÓN OFFLINE (Precision@5) ---")
-    
-    # Lista de test (Animes conocidos de diferentes géneros)
-    test_cases = [
-        "Naruto", "Death Note", "Your Lie in April", 
-        "Steins;Gate", "Haikyuu!!", "Toradora!", 
-        "Attack on Titan", "Spirited Away"
-    ]
-    
-    scores = []
-    
-    for anime in test_cases:
-        try:
-            score = calculate_precision_at_k(anime, k=5)
-            scores.append(score)
-            print(f"✅ {anime}: Precision@5 = {score:.2f}")
-        except Exception as e:
-            print(f"⚠️ Saltando {anime}: {e}")
+    # --- MÉTRICAS ---
+    # Usamos el K real 
+    actual_k = len(recommendations)
+    precision = hits / actual_k if actual_k > 0 else 0
+    reciprocal_rank = 1 / first_hit_rank if first_hit_rank else 0
+    avg_graph_proximity = np.mean(transr_scores) if transr_scores else 0
 
-    mean_precision = np.mean(scores)
-    print(f"\n🏆 MAP (Mean Average Precision) estimado: {mean_precision:.4f}")
-    print("----------------------------------------------------")
-
-if __name__ == "__main__":
-    run_evaluation_suite()
+    return {
+        "precision": round(precision, 3),
+        "mrr": round(reciprocal_rank, 3),
+        "proximity": round(avg_graph_proximity, 4),
+        "hits": hits
+    }
