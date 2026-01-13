@@ -128,47 +128,68 @@ if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
 
         # 1. Router y Extracción
         if st.session_state.llm.should_use_tool(prompt):
+
+            filters = st.session_state.llm.extract_filters(prompt)
+
             with st.status("Consultando Grafo de Conocimiento...", expanded=True) as status:
-                anime_name = st.session_state.llm.extract_anime_name(prompt)
-                
-                if anime_name and anime_name != "NULL":
+                API_URL = "http://localhost:8000/execute/"
+
+                results = None
+
+                print(f"Filtros encontrados: {filters}")
+                if "anime_name" not in filters or filters["anime_name"] == None:
                     try:
-                        API_URL = "http://localhost:8000/execute/search_knowledge_graph"
                         payload = {
-                            "query": anime_name, 
+                            "filters": filters,
                             "top_k": top_k_selector,
                             "exclude": st.session_state.excluded_animes
                         }
-                        res = requests.post(API_URL, json=payload, timeout=60)
-                        results = res.json().get("results", [])
-
-                        if results:
-                            st.session_state.total_recs += len(results)
-                            table_data = results
-                            context_text = ""
-                            
-                            for r in results:
-                                status.write(f"🎞️ Obteniendo info de: {r['name']}")
-                                jikan = JikanClient.get_anime_info(r['name'])
-                                gallery_data.append({
-                                    "name": r['name'],
-                                    "image": jikan['image_url'],
-                                    "url": jikan['url'],
-                                    "score": r['score']
-                                })
-                                context_text += f"- {r['name']}: {r['details']}\n"
-
-                            sys_prompt = f"""Actúa como experto. Recomienda estos animes en orden:
-                            {context_text}
-                            Usa un tono entusiasta y justifica por qué se parecen al original."""
-                            status.update(label="¡Recomendaciones listas!", state="complete", expanded=False)
-                        else:
-                            status.update(label="No encontré resultados similares.", state="error")
+                        req = requests.post(API_URL + "discover_animes", json=payload, timeout=60)
+                        results = req.json().get("results",[])
                     except Exception as e:
                         status.update(label=f"Error de conexión: {e}", state="error")
-                else:
-                    status.update(label="No pude identificar un anime en tu mensaje.", state="error")
 
+                else:
+                    #anime_name = st.session_state.llm.extract_anime_name(prompt)
+                    anime_name = filters['anime_name']
+                    if anime_name and anime_name != "NULL":
+                        try:
+                            payload = {
+                                "query": anime_name, 
+                                "top_k": top_k_selector,
+                                "exclude": st.session_state.excluded_animes
+                            }
+                            res = requests.post(API_URL + "search_knowledge_graph", json=payload, timeout=60)
+                            results = res.json().get("results", [])
+                        except Exception as e:
+                            status.update(label=f"Error de conexión: {e}", state="error")
+                    else:
+                        status.update(label="No pude identificar un anime en tu mensaje.", state="error")
+
+                # configuramos la salida según los resultados
+                if results:
+                    st.session_state.total_recs += len(results)
+                    table_data = results
+                    context_text = ""
+                    
+                    for r in results:
+                        status.write(f"🎞️ Obteniendo info de: {r['name']}")
+                        jikan = JikanClient.get_anime_info(r['name'])
+                        gallery_data.append({
+                            "name": r['name'],
+                            "image": jikan['image_url'],
+                            "url": jikan['url'],
+                            "score": r['score']
+                        })
+                        context_text += f"- {r['name']}: {r['details']}\n"
+
+                    sys_prompt = f"""Actúa como experto. Recomienda estos animes en orden:
+                    {context_text}
+                    Usa un tono entusiasta y justifica por qué se parecen al original."""
+                    status.update(label="¡Recomendaciones listas!", state="complete", expanded=False)
+                else:
+                    status.update(label="No encontré resultados similares.", state="error")
+                        
         # 2. Generación de Respuesta
         full_response = st.session_state.llm.chat(sys_prompt, st.session_state.messages[:-1], prompt)
         st.markdown(full_response)

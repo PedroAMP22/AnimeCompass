@@ -200,3 +200,37 @@ class KGEngine:
             
         results = sorted(results, key=lambda x: x["score"], reverse=True)[:k]
         return results
+
+    def discover_animes(self, filters, k=5, exclude_list=None) :
+        """Búsqueda directa por atributos en el DataFrame"""
+        if exclude_list is None: exclude_list = []
+        temp_df = self.df.copy() 
+
+        # 1. Filtro estricto de Año
+        if filters.get('year'):
+            temp_df = temp_df[temp_df['Year'] == float(filters['year'])]
+
+        # 2. Filtro de Géneros con limpieza
+        if filters.get('genres'):
+            for genre_buscado in filters['genres']:
+                # Normalizamos: "Adventure" -> "adventure"
+                g_search = genre_buscado.lower()
+                
+                # Verificamos si el género está contenido en la lista/set de la fila
+                temp_df = temp_df[temp_df['Genres'].apply(
+                    lambda x: any(g_search in str(g).lower() for g in x) 
+                    if isinstance(x, (list, set, tuple)) else False
+                )]
+
+        results = []
+        for _, row in temp_df.iterrows():
+            cand_name = row['Name']
+            if cand_name in exclude_list: continue
+            results.append({
+                "name": row['Name'],
+                "score": 1.0, # Puntuación máxima por coincidencia exacta de filtro
+                "details": f"Géneros: {row['Genres']}, Año: {row['Year']}"
+            })
+        
+        results = sorted(results, key=lambda x: x["name"], reverse=True)[:k]
+        return results
