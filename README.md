@@ -23,7 +23,7 @@ A diferencia de los recomendadores tradicionales, este proyecto implementa una *
 
 ## ✨ Características Principales
 
-*   🧠 **Motor Híbrido (80/20):** Combina similitud semántica vectorial (Embeddings TransR) con reglas de negocio explícitas (Jaccard, Decaimiento Exponencial).
+*   🧠 **Motor Híbrido (80/20):** Combina similitud semántica vectorial (Embeddings TransR) con heurísticas basadas en rasgos explícitos (Jaccard, Decaimiento Exponencial).
 *   💬 **Chat Natural:** Habla con el sistema como si fuera un amigo. *"Quiero algo como Evangelion pero más moderno"*.
 *   🔄 **Ciclo CBR Completo:**
     *   **Retrieve:** Búsqueda inteligente en el espacio vectorial.
