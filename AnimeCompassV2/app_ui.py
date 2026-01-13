@@ -6,6 +6,9 @@ from jikan_client import JikanClient
 # --- CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(page_title="AnimeCompass V2", layout="wide", page_icon="🧭")
 
+
+API_URL = "http://localhost:8000/"
+
 # Inicialización de estado
 init_states = {
     "llm": OllamaClient(model="llama3.2"),
@@ -26,17 +29,23 @@ for key, value in init_states.items():
 # --- FUNCIONES DE FEEDBACK ---
 def mark_as_disliked(anime_name):
     if anime_name not in st.session_state.ya_interactuado:
+        # Guardar en base de datos local (memoria)
         st.session_state.excluded_animes.append(anime_name)
         st.session_state.ya_interactuado.add(anime_name)
+        
+        # Guardar en base de datos REAL (API)
+        if "user_nick" in st.session_state:
+            try:
+                payload = {"nick": st.session_state.user_nick, "anime_name": anime_name}
+                requests.post(f"{API_URL}/user/dislike", json=payload)
+            except:
+                pass # Silencioso o st.error
+        
         st.toast(f"👎 Ocultando: {anime_name}")
 
 def mark_as_liked(anime_name, rank, msg_idx):
-    """
-    rank: posición en la lista (1, 2, 3...)
-    msg_idx: identificador de la búsqueda para no duplicar MRR
-    """
     if anime_name not in st.session_state.ya_interactuado:
-        # Lógica de MRR: Solo cuenta el primer Like de cada bloque de recomendación
+        # Lógica de métricas (MRR)
         if msg_idx not in st.session_state.sesiones_con_feedback:
             reciprocal_rank = 1.0 / rank
             st.session_state.rr_sum += reciprocal_rank
@@ -45,10 +54,121 @@ def mark_as_liked(anime_name, rank, msg_idx):
             
         st.session_state.total_likes += 1
         st.session_state.ya_interactuado.add(anime_name)
+        
+        # Guardar en base de datos REAL (API)
+        if "user_nick" in st.session_state:
+            try:
+                payload = {"nick": st.session_state.user_nick, "anime_name": anime_name}
+                requests.post(f"{API_URL}/user/like", json=payload)
+            except:
+                pass
+
         st.toast(f"❤️ ¡Añadido a favoritos! (Rank: {rank})")
+
+@st.dialog("Community Reviews")
+def show_review_modal():
+    st.subheader("Post a Review")
+    new_comment = st.text_area("What do you think of AnimeCompass?", height=100) # Se llama new_comment
+    if st.button("Submit Review"):
+        if "user_nick" in st.session_state:
+            # CAMBIO: Usar new_comment aquí
+            payload = {"nick": st.session_state.user_nick, "comment": new_comment} 
+            try:
+                requests.post(API_URL + "reviews/add", json=payload)
+                st.toast("Review Sent!")
+                # Opcional: st.rerun() para que aparezca la review recién puesta
+            except:
+                st.error("Server offline")
+
+    st.divider()
+
+    # 2. Read section
+    st.subheader("What others are saying")
+    try:
+        response = requests.get(API_URL + "reviews").json()
+        # reviews_list ahora es una LISTA, no un diccionario
+        reviews_list = response.get("reviews", [])
+
+        # Si quieres mostrar los últimos comentarios primero
+        for review in reversed(reviews_list):
+            user = review["nick"]
+            content = review["text"]
+            
+            with st.chat_message("user"):
+                st.write(f"**{user}** dice:")
+                st.write(content.strip())
+                # st.divider() # Opcional
+    except:
+        st.write("No reviews yet. Be the first!")
+
+    if st.button("Close"):
+        st.rerun()
+
+# --- LOGIN ----
+if "user_nick" not in st.session_state:
+    with st.form("login_form"):
+        nick = st.text_input("Introduce your Nick to start:")
+        if st.form_submit_button("Login / Register"):
+            if nick:
+                try:
+                    response = requests.post(f"{API_URL}/user/add", json={"nick": nick, "comment": ""})
+                    response.raise_for_status()
+                    res_data = response.json()
+                    
+                    # --- CARGAR HISTORIAL DEL USUARIO ---
+                    st.session_state.user_nick = nick
+                    
+                    # Si el usuario ya tenía dislikes, los cargamos para que el motor los use
+                    user_info = res_data.get("data", {})
+                    past_dislikes = user_info.get("disliked_animes", [])
+                    st.session_state.excluded_animes = past_dislikes
+                    
+                    # También marcamos como interactuados para que no salgan botones de nuevo
+                    past_likes = user_info.get("likes", [])
+                    st.session_state.ya_interactuado = set(past_dislikes + past_likes)
+                    # ------------------------------------
+
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error de conexión: {e}")
+            else:
+                st.error("Please enter a nickname.")
+    st.stop()
+
+# --- TOP NAVIGATION BAR ---
+col_title, col_btn = st.columns([3, 1])
+with col_title:
+    st.title("🧭 AnimeCompass V2")
+
+with col_btn:
+    if st.button("💬 Open Reviews", use_container_width=True):
+        show_review_modal()
 
 # --- SIDEBAR (MÉTRICAS) ---
 with st.sidebar:
+    st.header(f"👤 Bienvenido, {st.session_state.user_nick}")
+    if st.button("Logout / Change Nick", use_container_width=True):
+        # 1. Eliminamos la identidad
+        if "user_nick" in st.session_state:
+            del st.session_state.user_nick
+        
+        # 2. Reiniciamos todas las variables de estado a sus valores originales
+        # Usamos el diccionario init_states que definiste al principio del script
+        for key, value in init_states.items():
+            # Para evitar problemas con objetos mutables (listas/sets), 
+            # reiniciamos con copias nuevas si es necesario.
+            if isinstance(value, list):
+                st.session_state[key] = []
+            elif isinstance(value, set):
+                st.session_state[key] = set()
+            else:
+                st.session_state[key] = value
+                
+        # 3. Forzamos el reinicio para volver a la pantalla de login
+        st.rerun()
+
+    st.divider()
+    
     st.header("📊 Panel de Control")
     top_k_selector = st.slider("Nº de Recomendaciones", 1, 10, 5)
     
@@ -77,9 +197,9 @@ with st.sidebar:
             elif key == "sesiones_con_feedback": st.session_state[key] = set()
             else: st.session_state[key] = init_states[key]
         st.rerun()
+        
 
 # --- INTERFAZ PRINCIPAL ---
-st.title("🧭 AnimeCompass V2")
 st.info("Recomendaciones de anime utilizando Inteligencia Artificial y Grafos de Conocimiento.")
 
 # Renderizado de Historial
@@ -132,7 +252,6 @@ if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
             filters = st.session_state.llm.extract_filters(prompt)
 
             with st.status("Consultando Grafo de Conocimiento...", expanded=True) as status:
-                API_URL = "http://localhost:8000/execute/"
 
                 results = None
 
@@ -144,7 +263,7 @@ if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
                             "top_k": top_k_selector,
                             "exclude": st.session_state.excluded_animes
                         }
-                        req = requests.post(API_URL + "discover_animes", json=payload, timeout=60)
+                        req = requests.post(API_URL + "execute/discover_animes", json=payload, timeout=60)
                         results = req.json().get("results",[])
                     except Exception as e:
                         status.update(label=f"Error de conexión: {e}", state="error")
@@ -159,7 +278,7 @@ if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
                                 "top_k": top_k_selector,
                                 "exclude": st.session_state.excluded_animes
                             }
-                            res = requests.post(API_URL + "search_knowledge_graph", json=payload, timeout=60)
+                            res = requests.post(API_URL + "execute/search_knowledge_graph", json=payload, timeout=60)
                             results = res.json().get("results", [])
                         except Exception as e:
                             status.update(label=f"Error de conexión: {e}", state="error")
@@ -184,7 +303,7 @@ if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
                         context_text += f"- {r['name']}: {r['details']}\n"
 
                     sys_prompt = f"""Actúa como experto. Recomienda estos animes en orden:
-                    {context_text}
+                    {results}
                     Usa un tono entusiasta y justifica por qué se parecen al original."""
                     status.update(label="¡Recomendaciones listas!", state="complete", expanded=False)
                 else:

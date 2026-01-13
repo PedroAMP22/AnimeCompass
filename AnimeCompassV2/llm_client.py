@@ -134,11 +134,6 @@ class OllamaClient:
             - "genres": Lista de strings (ej: ["Romance", "Sci-Fi"])
             - "year": Entero (ej: 1990)
 
-            Ejemplos de comportamiento esperado:
-            Input: "Quiero ver algo como Akira" -> "anime_name": "Akira", "genres" : [], "year": None
-            Input: "Busco series de accion" ->  "anime_name": None, "genres" : [Action], "year": None
-            Input: "Recomiendame algo de romance de 1990" ->  "anime_name": None, "genres" : [Romance], "year": 1990
-
             Petición: "{query}"
             JSON:
         """
