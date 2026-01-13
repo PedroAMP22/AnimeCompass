@@ -141,13 +141,13 @@ with col_title:
     st.title("🧭 AnimeCompass V2")
 
 with col_btn:
-    if st.button("💬 Open Reviews", use_container_width=True):
+    if st.button("💬 Open Reviews", width="stretch"):
         show_review_modal()
 
 # --- SIDEBAR (MÉTRICAS) ---
 with st.sidebar:
     st.header(f"👤 Bienvenido, {st.session_state.user_nick}")
-    if st.button("Logout / Change Nick", use_container_width=True):
+    if st.button("Logout / Change Nick", width="stretch"):
         # 1. Eliminamos la identidad
         if "user_nick" in st.session_state:
             del st.session_state.user_nick
@@ -237,88 +237,109 @@ for msg_idx, msg in enumerate(st.session_state.messages):
                 st.table(msg["data"])
 
 # --- LÓGICA DE ENTRADA ---
-if prompt := st.chat_input("Ej: Recomiéndame algo oscuro como Death Note"):
+if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
+
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
+        response_text = ""
         table_data = []
-        gallery_data = []
-        sys_prompt = "Responde amigablemente como un experto en anime."
+        gallery_data = [] 
 
-        # 1. Router y Extracción
+        # 1. Router 
         if st.session_state.llm.should_use_tool(prompt):
 
-            filters = st.session_state.llm.extract_filters(prompt)
-
-            with st.status("Consultando Grafo de Conocimiento...", expanded=True) as status:
-
-                results = None
-
-                print(f"Filtros encontrados: {filters}")
-                if "anime_name" not in filters or filters["anime_name"] == None:
+            with st.status("Procesando solicitud y descargando imágenes...", expanded=True) as status:
+                st.write("🧠 Detectando intención... (Anime)")
+                anime_name = st.session_state.llm.extract_anime_name(prompt)
+                results = []
+                if anime_name and anime_name != "NULL":
+                    st.write(f"🔍 Calculando similitud para: **{anime_name}**")
                     try:
                         payload = {
-                            "filters": filters,
+                            "query": anime_name, 
                             "top_k": top_k_selector,
                             "exclude": st.session_state.excluded_animes
                         }
-                        req = requests.post(API_URL + "execute/discover_animes", json=payload, timeout=60)
-                        results = req.json().get("results",[])
+                        res = requests.post(API_URL + "execute/search_knowledge_graph", json=payload)
+                        results = res.json().get("results", [])
                     except Exception as e:
                         status.update(label=f"Error de conexión: {e}", state="error")
-
                 else:
-                    #anime_name = st.session_state.llm.extract_anime_name(prompt)
-                    anime_name = filters['anime_name']
-                    if anime_name and anime_name != "NULL":
-                        try:
-                            payload = {
-                                "query": anime_name, 
-                                "top_k": top_k_selector,
-                                "exclude": st.session_state.excluded_animes
-                            }
-                            res = requests.post(API_URL + "execute/search_knowledge_graph", json=payload, timeout=60)
-                            results = res.json().get("results", [])
-                        except Exception as e:
-                            status.update(label=f"Error de conexión: {e}", state="error")
-                    else:
-                        status.update(label="No pude identificar un anime en tu mensaje.", state="error")
+                    status.update(label="No pude identificar un anime en tu mensaje.", state="error")
 
                 # configuramos la salida según los resultados
                 if results:
                     st.session_state.total_recs += len(results)
                     table_data = results
-                    context_text = ""
+                    context = ""
                     
-                    for r in results:
-                        status.write(f"🎞️ Obteniendo info de: {r['name']}")
+                    for i, r in enumerate(results):
+                        status.write(f"🎞️ Obteniendo carátula para: {r['name']}")
                         jikan = JikanClient.get_anime_info(r['name'])
                         gallery_data.append({
                             "name": r['name'],
                             "image": jikan['image_url'],
                             "url": jikan['url'],
-                            "score": r['score']
+                            "score": r['score'],
+                            "details": r['details']
                         })
-                        context_text += f"- {r['name']}: {r['details']}\n"
+                        context += f"""
+                        === RANKING #{i+1} ===
+                        - ANIME: {r['name']}
+                            * Score: {r['score']:.3f}
+                            * Detalles: {r['details']}
+                        """
 
-                    sys_prompt = f"""Actúa como experto. Recomienda estos animes en orden:
-                    {results}
-                    Usa un tono entusiasta y justifica por qué se parecen al original."""
-                    status.update(label="¡Recomendaciones listas!", state="complete", expanded=False)
+                    sys_prompt = f"""
+                            Actúa como un experto en anime amigable y conocedor. Acabas de consultar nuestra base de datos de similitud y tienes los resultados listos.
+                            
+                            TUS INSTRUCCIONES:
+                            1. **El Orden es Clave:** Recomienda los animes en el orden exacto que te doy abajo (del #1 al #5). El #1 es la recomendación estrella.
+                            2. **Tono Natural:** No hables como un robot ("Basado en los datos..."). Habla como un fan recomendando a otro fan. Usa frases como: "Tengo unas recomendaciones geniales", "Lo más parecido que he encontrado es...", "Si te gusta ese estilo, tienes que ver...".
+                            3. **Argumenta:** Usa los detalles (géneros, año, etc.) para explicar por qué se parecen, pero no hace falta que digas los números exactos (ya salen en la tabla). Di cosas como "tiene una ambientación muy similar" o "coinciden mucho en los géneros de acción".
+                            4. **Fidelidad:** Solo recomienda los animes de la lista.
+                            
+                            LISTA DE RECOMENDACIONES (ORDENADA):
+                            {context}
+                            
+                            Responde al usuario de forma fluida, empezando por la mejor opción.
+                            """
+                    table_data = results
+
+                    status.update(label="¡Análisis completado!", state="complete", expanded=False)
                 else:
                     status.update(label="No encontré resultados similares.", state="error")
-                        
-        # 2. Generación de Respuesta
-        full_response = st.session_state.llm.chat(sys_prompt, st.session_state.messages[:-1], prompt)
-        st.markdown(full_response)
+
+                if gallery_data:
+                    st.write("---")
+                    st.subheader(f"Recomendaciones para: {anime_name}")
+                    
+                    cols = st.columns(len(gallery_data))
+                    for idx, item in enumerate(gallery_data):
+                        with cols[idx]:
+                            st.image(item['image'], width="stretch")
+                            st.caption(f"**{idx+1}. [{item['name']}]({item['url']})**")
+                            st.progress(item['score'], text=f"Sim: {item['score']:.2f}")
+                
+        else:
+            sys_prompt = "Responde como asistente normal."
+
+        # Generación de Respuesta
+        response_text = st.session_state.llm.chat(
+            sys_prompt, 
+            st.session_state.messages[:-1], 
+            prompt
+        )  
         
         # 3. Guardado en historial
         st.session_state.messages.append({
             "role": "assistant",
-            "content": full_response,
+            "content": response_text,
             "data": table_data,
             "gallery": gallery_data
         })
-        
+
         st.rerun()

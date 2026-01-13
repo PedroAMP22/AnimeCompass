@@ -124,28 +124,4 @@ class OllamaClient:
         # 4. Enviamos todo el bloque al LLM
         return self._call(full_prompt)
 
-    def extract_filters(self, query):
-        prompt = f"""
-            Eres un extractor de datos. Analiza la petición y devuelve UNICAMENTE un objeto JSON.
-            Si no hay un dato, no lo incluyas. 
-            
-            Campos:
-            - "anime_name": String (ej: "Bleach")
-            - "genres": Lista de strings (ej: ["Romance", "Sci-Fi"])
-            - "year": Entero (ej: 1990)
-
-            Petición: "{query}"
-            JSON:
-        """
-        # Usamos temperatura 0 para máxima precisión
-        raw_response = self._call(prompt, temp=0.0)
-        
-        try:
-            # Buscamos el bloque JSON con regex por si el modelo añade texto extra
-            match = re.search(r'\{.*\}', raw_response, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            return {}
-        except Exception as e:
-            print(f"❌ Error parseando filtros: {e}")
-            return {}
+    

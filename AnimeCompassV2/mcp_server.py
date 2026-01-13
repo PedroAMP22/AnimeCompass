@@ -18,23 +18,14 @@ class QueryRequest(BaseModel):
     top_k: int = 5
     exclude: list[str] = []
 
-class DiscoveryRequest(BaseModel):
-    filters: Dict[str, Any]
-    top_k: int = 5
-    exclude: List[str] = []
 
 @app.post("/execute/search_knowledge_graph")
 def search(req: QueryRequest):
-    results = kg.search_top_k(req.query, req.top_k, req.exclude)
-    return {"results": results}
-
-@app.post("/execute/discover_animes") 
-def discover(req: DiscoveryRequest):
     try:
-        results = kg.discover_animes(req.filters, req.top_k, req.exclude)
+        results = kg.search_top_k(req.query, req.top_k, req.exclude)
         return {"results": results}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
 class ReviewRequest(BaseModel):
     nick: str
