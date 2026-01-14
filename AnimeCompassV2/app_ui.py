@@ -360,7 +360,7 @@ with tab_chat:
                     cols = st.columns(len(msg["gallery"]))
                     for idx, item in enumerate(msg["gallery"]):
                         with cols[idx]:
-                            with cols[idx%top_k_selector]:
+                            with cols[idx]:
                                 st.image(item["image"], width='stretch')
                                 st.markdown(f"**[{item['name']}]({item['url']})**")
 
@@ -474,7 +474,7 @@ with tab_chat:
                         
                         cols = st.columns(len(gallery_data))
                         for idx, item in enumerate(gallery_data):
-                            with cols[idx%top_k_selector]:
+                            with cols[idx]:
                                 with st.container(border=True):
                                     st.image(item['image'], width="stretch")
                                     st.markdown(f"**[{item['name']}]({item['url']})**")
