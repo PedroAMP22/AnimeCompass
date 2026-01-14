@@ -351,24 +351,26 @@ with tab_chat:
                     cols = st.columns(len(msg["gallery"]))
                     for idx, item in enumerate(msg["gallery"]):
                         with cols[idx]:
-                            st.image(item["image"], width='stretch')
-                            st.caption(f"**{item['name']}**")
-                            
-                            # Estado del botón
-                            interactuado = item['name'] in st.session_state.ya_interactuado
-                            b1, b2 = st.columns(2)
-                            
-                            # Botón Like
-                            b1.button("❤️", key=f"lk_{msg_idx}_{idx}", 
-                                    on_click=mark_as_liked, 
-                                    args=(item['name'], idx + 1, msg_idx),
-                                    disabled=interactuado)
-                            
-                            # Botón Dislike
-                            b2.button("👎", key=f"dk_{msg_idx}_{idx}", 
-                                    on_click=mark_as_disliked, 
-                                    args=(item['name'],),
-                                    disabled=interactuado)
+                            with cols[idx%top_k_selector]:
+                                st.image(item["image"], width='stretch')
+                                st.markdown(f"**[{item['name']}]({item['url']})**")
+
+                                
+                                # Estado del botón
+                                interactuado = item['name'] in st.session_state.ya_interactuado
+                                b1, b2 = st.columns(2)
+                                
+                                # Botón Like
+                                b1.button("❤️", key=f"lk_{msg_idx}_{idx}", 
+                                        on_click=mark_as_liked, 
+                                        args=(item['name'], idx + 1, msg_idx),
+                                        disabled=interactuado)
+                                
+                                # Botón Dislike
+                                b2.button("👎", key=f"dk_{msg_idx}_{idx}", 
+                                        on_click=mark_as_disliked, 
+                                        args=(item['name'],),
+                                        disabled=interactuado)
                 
                 # Mostrar desglose técnico
                 if "data" in msg and msg["data"]:
@@ -463,10 +465,11 @@ with tab_chat:
                         
                         cols = st.columns(len(gallery_data))
                         for idx, item in enumerate(gallery_data):
-                            with cols[idx]:
-                                st.image(item['image'], width="stretch")
-                                st.caption(f"**{idx+1}. [{item['name']}]({item['url']})**")
-                                st.progress(item['score'], text=f"Sim: {item['score']:.2f}")
+                            with cols[idx%top_k_selector]:
+                                with st.container(border=True):
+                                    st.image(item['image'], width="stretch")
+                                    st.markdown(f"**[{item['name']}]({item['url']})**")
+                                    st.progress(item['score'], text=f"Sim: {item['score']:.2f}")
                     
             else:
                 sys_prompt = "Responde como asistente normal."
