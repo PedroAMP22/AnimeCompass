@@ -1,11 +1,31 @@
 {
     "pedro": {
-        "comments": [],
-        "disliked_animes": [],
-        "likes": [],
-        "total_animes": 0,
-        "mrr": 0.0,
-        "genre_profile": {}
+        "comments": [
+            "Perfecta"
+        ],
+        "disliked_animes": [
+            "Birth",
+            "Reborn"
+        ],
+        "likes": [
+            "Karas",
+            "Rayearth",
+            "Lyrics",
+            "Star_Blazers_The_Quest_for_Iscandar",
+            "Battle_Doll_Angelic_Layer",
+            "Infinite_Ryvius"
+        ],
+        "total_animes": 10,
+        "mrr": 0.6,
+        "genre_profile": {
+            "fantasy_anime": 2,
+            "action_anime": 2,
+            "scifi_anime": 4,
+            "adventure_anime": 2,
+            "award_winning_anime": 3,
+            "drama_anime": 3,
+            "comedy_anime": 1
+        }
     },
     "goku24": {
         "comments": [

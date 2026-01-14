@@ -11,8 +11,12 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # --- CONFIGURACIÓN Y ESTADO ---
-st.set_page_config(page_title="AnimeCompass V2", layout="wide", page_icon="🧭")
-
+st.set_page_config(
+    page_title="AnimeCompass V2", 
+    layout="wide", 
+    page_icon="🧭",
+    initial_sidebar_state="expanded"
+)
 API_URL = "http://localhost:8000/"
 
 # Inicialización de estado
@@ -74,135 +78,162 @@ def mark_as_liked(anime_name, rank, msg_idx):
 # Comentarios
 @st.dialog("Reviews de la Comunidad")
 def show_review_modal():
-    # Publicar comentario
-    st.subheader("Publica tu review")
-    new_comment = st.text_area("¿Que piensas de Anime Compass?", height=100) 
-    if st.button("Enviar"):
-        if "user_nick" in st.session_state:
-            payload = {"nick": st.session_state.user_nick, "comment": new_comment} 
-            try:
-                requests.post(API_URL + "reviews/add", json=payload)
-                st.toast("Review enviada")
-            except:
-                st.error("Server offline")
-
-    st.divider()
-
-    # Comentarios publicados
-    st.subheader("Lo que opina nuestra comunidad")
+    reviews_list = []
     try:
         response = requests.get(API_URL + "reviews").json()
         reviews_list = response.get("reviews", [])
-
-        for review in reversed(reviews_list):
-            user = review["nick"]
-            content = review["text"]
-            
-            with st.chat_message("user"):
-                st.write(f"**{user}** dice:")
-                st.write(content.strip())
     except:
-        st.write("No hay nada. ¡Se el primero!")
+        st.error("No se pudo conectar con el servidor de reviews.")
 
-    if st.button("Close"):
+    current_nick = st.session_state.get("user_nick")
+    existing_review = next((r for r in reviews_list if r.get("nick") == current_nick.lower()), None)
+
+    st.subheader("Publica tu review")
+
+    if existing_review:
+        # tiene review
+        st.warning("⚠️ Ya has publicado una reseña anteriormente.")
+        with st.container(border=True):
+            st.caption("Tu comentario:")
+            st.markdown(f"_{existing_review.get('text', '')}_")
+        st.info("Solo se permite una reseña por usuario para mantener la calidad.")
+        
+    else:
+        # no tiene review
+        new_comment = st.text_area("¿Que piensas de Anime Compass?", height=100, placeholder="Escribe tu opinión aquí...") 
+        if st.button("Enviar", type="primary"):
+            if current_nick and new_comment.strip():
+                payload = {"nick": current_nick, "comment": new_comment} 
+                try:
+                    requests.post(API_URL + "reviews/add", json=payload)
+                    st.toast("✅ Review enviada correctamente")
+                except:
+                    st.error("Server offline o error al enviar.")
+                st.rerun()
+            elif not new_comment.strip():
+                st.warning("El comentario no puede estar vacío.")
+
+    st.divider()
+
+    st.subheader("Lo que opina nuestra comunidad")
+    
+    with st.container(height=300):
+        if not reviews_list:
+            st.write("No hay nada. ¡Sé el primero!")
+        else:
+            for review in reversed(reviews_list):
+                user = review["nick"]
+                content = review["text"]
+                
+                is_me = (user == current_nick)
+                avatar = "⭐" if is_me else "👤"
+                
+                with st.chat_message("user", avatar=avatar):
+                    st.write(f"**{user}** {'(Tú)' if is_me else ''} dice:")
+                    st.write(content.strip())
+
+    if st.button("Cerrar"):
         st.rerun()
 
-# --- TOP NAVIGATION BAR ---
-col_title, col_btn = st.columns([3, 1])
-with col_title:
-    st.title("🧭 AnimeCompass V2")
 
+# --- INICIALIZACIÓN DE VARIABLES ---
 for key, value in init_states.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-st.info("Recomendaciones de anime utilizando Inteligencia Artificial y Grafos de Conocimiento.")
 
-# --- LOGIN ----
+# --- PANTALLA DE LOGIN  ---
 if "user_nick" not in st.session_state:
-    with st.form("login_form"):
-        nick = st.text_input("Introduce tu nickname: ")
-        if st.form_submit_button("Login / Register"):
-            if nick:
-                try:
-                    response = requests.post(f"{API_URL}/user/add", json={"nick": nick, "comment": ""})
-                    response.raise_for_status()
-                    res_data = response.json()
-                    
-                    # --- CARGAR HISTORIAL DEL USUARIO ---
-                    st.session_state.user_nick = nick
-                    
-                    # Si el usuario ya tenía dislikes, los cargamos para que el motor los use
-                    user_info = res_data.get("data", {})
-                    past_dislikes = user_info.get("disliked_animes", [])
-                    st.session_state.excluded_animes = past_dislikes
-                    
-                    # También marcamos como interactuados para que no salgan botones de nuevo
-                    past_likes = user_info.get("likes", [])
-                    st.session_state.ya_interactuado = set(past_dislikes + past_likes)
-                    st.session_state.total_likes = len(past_likes)
-
-                    # Cargamos las métricas
-                    st.session_state.mrr = user_info.get("mrr", 0)
-                    st.session_state.total_recs = user_info.get("total_animes", 0)
-                    # ------------------------------------
-
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error de conexión: {e}")
-            else:
-                st.error("Por favor, introduce tu nick.")
+    _, col_login, _ = st.columns([1, 1.5, 1])
+    
+    with col_login:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("<h1 style='text-align: center;'>🧭 AnimeCompass</h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: gray;'>Tu brújula para navegar el mundo del anime con IA.</p>", unsafe_allow_html=True)
+            st.divider()
+            
+            with st.form("login_form"):
+                nick = st.text_input("Introduce tu nickname", placeholder="Ej: OtakuMaster99")
+                submitted = st.form_submit_button("🚀 Entrar / Registrarse", type="primary")
+                
+                if submitted:
+                    if nick:
+                        try:
+                            with st.spinner("Conectando con el servidor..."):
+                                response = requests.post(f"{API_URL}/user/add", json={"nick": nick, "comment": ""})
+                                response.raise_for_status()
+                                res_data = response.json()
+                                
+                                st.session_state.user_nick = nick
+                                user_info = res_data.get("data", {})
+                                past_dislikes = user_info.get("disliked_animes", [])
+                                st.session_state.excluded_animes = past_dislikes
+                                past_likes = user_info.get("likes", [])
+                                st.session_state.ya_interactuado = set(past_dislikes + past_likes)
+                                st.session_state.total_likes = len(past_likes)
+                                st.session_state.mrr = user_info.get("mrr", 0)
+                                st.session_state.total_recs = user_info.get("total_animes", 0)
+                                
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error de conexión: {e}")
+                    else:
+                        st.warning("Por favor, introduce tu nick.")
     st.stop()
 
+# --- LAYOUT PRINCIPAL  ---
+
+# HEADER
+col_title, col_btn = st.columns([6, 1], gap="small")
+with col_title:
+    st.title("🧭 AnimeCompass V2")
 with col_btn:
-    if st.button("💬 Open Reviews", width="stretch"):
+    st.write("") # Espaciado
+    if st.button("💬 Reviews"):
         show_review_modal()
 
-# --- SIDEBAR (MÉTRICAS) ---
+# SIDEBAR (MÉTRICAS)
 with st.sidebar:
-    st.header(f"👤 Bienvenido, {st.session_state.user_nick}")
-    if st.button("Logout / Change Nick", width="stretch"):
-        # Eliminamos la identidad
+    st.markdown(f"### 👋 Hola, **{st.session_state.user_nick}**")
+    
+    # Botón de logout 
+    if st.button("Cerrar Sesión", key="logout_btn"):
         if "user_nick" in st.session_state:
             del st.session_state.user_nick
-        
-        # Reiniciamos todas las variables de estado a sus valores originales
         for key, value in init_states.items():
-            if isinstance(value, list):
-                st.session_state[key] = []
-            elif isinstance(value, set):
-                st.session_state[key] = set()
-            else:
-                st.session_state[key] = value
-                
-        # Forzamos el reinicio para volver a la pantalla de login
+            if isinstance(value, list): st.session_state[key] = []
+            elif isinstance(value, set): st.session_state[key] = set()
+            else: st.session_state[key] = value
         st.rerun()
 
-    st.divider()
+    st.markdown("---")
     
-    st.header("📊 Panel de Control")
-    top_k_selector = st.slider("Nº de Recomendaciones", 1, 10, 5)
+    st.subheader("🛠️ Configuración")
+    top_k_selector = st.slider("Resultados por búsqueda", 1, 10, 5)
     
-    st.divider()
-    st.subheader("📈 Calidad (IR Metrics)")
+    st.markdown("---")
+    st.subheader("📊 Métricas de Sesión")
     
-    # 1. User Precision
+    # Métricas visuales
     precision = (st.session_state.total_likes / st.session_state.total_recs * 100) if st.session_state.total_recs > 0 else 0
-    st.metric("🎯 User Precision", f"{precision:.1f}%", help="Porcentaje total de likes sobre recomendaciones mostradas.")
     
-    # 2. MRR (Mean Reciprocal Rank)
-    st.session_state.mrr = (st.session_state.rr_sum / st.session_state.queries_con_like) if st.session_state.queries_con_like > 0 else st.session_state.mrr
-    st.metric("🏆 MRR", f"{st.session_state.mrr:.3f}", help="Mide qué tan arriba aparecen los animes que te gustan. 1.0 es perfecto.")
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        st.metric("Precisión", f"{precision:.0f}%")
+    with col_m2:
+        st.metric("Likes", f"{st.session_state.total_likes}")
+        
+    st.metric("🏆 MRR (Ranking Promedio)", f"{st.session_state.mrr:.3f}")
     st.progress(min(st.session_state.mrr, 1.0))
-
-    # 3. Confianza del Grafo
+    
     last_msg = next((m for m in reversed(st.session_state.messages) if "data" in m and m["data"]), None)
     if last_msg:
         avg_score = sum(item.get('score', 0) for item in last_msg["data"]) / len(last_msg["data"])
-        st.metric("🔗 Confianza Grafo", f"{avg_score:.3f}")
+        st.caption(f"🔗 Confianza última búsqueda: **{avg_score:.3f}**")
 
-    st.divider()
-    if st.button("🗑️ Reiniciar Usuario", width='stretch'):
+    st.markdown("---")
+    if st.button("🗑️ Resetear Perfil", type="secondary"):
         for key in init_states.keys():
             if key == "ya_interactuado": st.session_state[key] = set()
             elif key == "sesiones_con_feedback": st.session_state[key] = set()
@@ -210,103 +241,100 @@ with st.sidebar:
         
         payload = {"nick": st.session_state.user_nick,  "comment": ""}
         requests.post(f"{API_URL}/user/reset", json=payload)
-
         st.rerun()
-        
 
-# CREAMOS LAS PESTAÑAS
-tab_chat, tab_profile = st.tabs(["💬 Chat IA", "⭐ Mis Recomendaciones"])
-
-
+# --- PESTAÑAS PRINCIPALES ---
+tab_chat, tab_profile = st.tabs(["💬 Chat IA", "⭐ Mi Perfil & Recomendaciones"])
 with tab_profile:
-    st.header("Tu ADN Otaku 🧬")
+    st.markdown("## 🧬 Tu ADN Otaku")
+    st.markdown("Aquí analizamos tus gustos basados en tus 'Likes' para sugerirte series nuevas.")
     
     if "user_nick" in st.session_state:
-        if st.button("🔄 Actualizar mis recomendaciones", type="primary"):
+        if st.button("🔄 Actualizar Análisis", type="primary"):
             try:
-                with st.spinner("Analizando tus gustos..."):
-                    # Llamada al endpoint
+                with st.spinner("Procesando tu perfil de usuario..."):
                     res = requests.get(f"{API_URL}/user/recommendations/{st.session_state.user_nick}")
                     data = res.json()
             
-                # --- VISUALIZACIÓN DEL PERFIL---
+                # --- VISUALIZACIÓN DEL PERFIL ---
                 raw_profile = data.get("profile", {})
                 
+                col_radar, col_desc = st.columns([1, 1])
+                
                 if raw_profile:
-                    st.subheader("Tu ADN Otaku 🧬")
+                    with col_radar:
+                        # Preparar datos
+                        clean_data = {k.replace("_anime", "").replace("_", " ").title(): v for k, v in raw_profile.items()}
+                        df = pd.DataFrame(list(clean_data.items()), columns=['Genre', 'Count'])
+                        
+                        # Gráfico de Radar
+                        fig = go.Figure(data=go.Scatterpolar(
+                            r=df['Count'],
+                            theta=df['Genre'],
+                            fill='toself',
+                            name='Gustos',
+                            line_color='#FF4B4B'
+                        ))
+                        fig.update_layout(
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            font=dict(color="white"),
+                            polar=dict(
+                                radialaxis=dict(visible=True, range=[0, df['Count'].max() + 1]),
+                                bgcolor='#262730'
+                            ),
+                            margin=dict(l=40, r=40, t=20, b=20) 
+                        )
+                        st.plotly_chart(fig, width="stretch")
                     
-                    # Preparar datos
-                    clean_data = {k.replace("_anime", "").replace("_", " ").title(): v for k, v in raw_profile.items()}
-                    df = pd.DataFrame(list(clean_data.items()), columns=['Genre', 'Count'])
-                    
-                    # Crear Gráfico de Radar
-                    fig = go.Figure(data=go.Scatterpolar(
-                        r=df['Count'],
-                        theta=df['Genre'],
-                        fill='toself',
-                        name='Gustos',
-                        line_color='#FF4B4B'
-                    ))
+                    with col_desc:
+                        st.success("¡Perfil generado con éxito!")
+                        st.write("Según tus interacciones, el sistema ha detectado tus géneros favoritos. Estas recomendaciones son **personales** y no dependen de una búsqueda específica.")
 
-                    fig.update_layout(
-                        polar=dict(
-                            radialaxis=dict(
-                                visible=True,
-                                range=[0, df['Count'].max() + 1] 
-                            )),
-                        showlegend=False,
-                        margin=dict(l=40, r=40, t=20, b=20) 
-                    )
-
-                    st.plotly_chart(fig, width="stretch")
                 else:
-                    st.warning("Aún no tienes suficientes likes para generar un perfil.")
+                    st.warning("⚠️ Aún no tienes suficientes 'Likes' para generar un gráfico de perfil.")
 
                 st.divider()
 
-                # --- GALERÍA DE RECOMENDACIONES  ---
+                # --- GALERÍA DE RECOMENDACIONES ---
                 recs = data.get("results", [])
                 
                 if recs:
-                    st.subheader("Animes sugeridos para ti")
+                    st.subheader("🌟 Recomendaciones Personalizadas")
                     
-                    # Definimos 5 columnas
+                    # Grid System personalizado
                     COLS_COUNT = 5
                     cols = st.columns(COLS_COUNT)
                     
                     for idx, item in enumerate(recs):
-                        # Lógica de grid: Usamos el índice módulo 5
                         with cols[idx % COLS_COUNT]:
-                            # Intentamos cargar imagen
-                            try:
-                                jikan = JikanClient.get_anime_info(item['name'])
-                                img = jikan['image_url']
-                                link = jikan['url']
-                            except:
-                                img = "https://placehold.co/300x450?text=No+Img"
-                                link = "#"
+                            # Tarjeta visual
+                            with st.container(border=True):
+                                try:
+                                    jikan = JikanClient.get_anime_info(item['name'])
+                                    img = jikan['image_url']
+                                    link = jikan['url']
+                                except:
+                                    img = "https://placehold.co/300x450?text=No+Img"
+                                    link = "#"
 
-                            # Imagen
-                            st.image(img, width="stretch")
-                            
-                            # Título (Link)
-                            st.markdown(f"**[{item['name']}]({link})**")
-                            
-                            # Detalles
-                            details_txt = item.get('details', '').replace("Coincide con tus gustos:", "Coincide en:")
-                            st.markdown(f"<span style='font-size:12px; color:gray;'>{details_txt}</span>", unsafe_allow_html=True)
-                            
-                            # Score 
-                            st.caption(f"Score: {item['score']:.1f}")
-                            
+                                st.image(img, width="stretch")
+                                st.markdown(f"**[{item['name']}]({link})**")
+                                
+                                st.progress(item['score'], text=f"Score: {item['score']:.2f}")
+                                
+                                details_txt = item.get('details', '').replace("Coincide con tus gustos:", "")
+                                st.caption(details_txt[:60] + "...")
                                 
                 else:
-                    st.info("Dale 'Like' a algunos animes en el chat para ver recomendaciones aquí.")
+                    st.info("💡 Dale 'Like' a algunos animes en el chat para ver recomendaciones aquí.")
 
             except Exception as e:
                 st.error(f"Error cargando perfil: {e}")
     else:
         st.warning("Por favor, inicia sesión para ver tus recomendaciones personalizadas.")
+
+
 
 # PESTAÑA DEL CHAT
 with tab_chat:
@@ -389,6 +417,8 @@ with tab_chat:
                         table_data = results
                         context = ""
                         
+                        progress_bar = status.progress(0, text="Descargando metadatos...")
+
                         for i, r in enumerate(results):
                             status.write(f"🎞️ Obteniendo carátula para: {r['name']}")
                             jikan = JikanClient.get_anime_info(r['name'])
@@ -405,6 +435,7 @@ with tab_chat:
                                 * Score: {r['score']:.3f}
                                 * Detalles: {r['details']}
                             """
+                            progress_bar.progress((i + 1) / len(results))
 
                         sys_prompt = f"""
                                 Actúa como un experto en anime amigable y conocedor. Acabas de consultar nuestra base de datos de similitud y tienes los resultados listos.
