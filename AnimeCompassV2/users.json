@@ -4,7 +4,8 @@
         "disliked_animes": [],
         "likes": [],
         "total_animes": 0,
-        "mrr": 0.0
+        "mrr": 0.0,
+        "genre_profile": {}
     },
     "goku24": {
         "comments": [

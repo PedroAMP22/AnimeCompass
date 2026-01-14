@@ -69,13 +69,41 @@ class InteractionRequest(BaseModel):
 def add_like(req: InteractionRequest):
     db = load_db()
     nick = req.nick.lower()
+    
     if nick in db:
         if "likes" not in db[nick]: db[nick]["likes"] = []
         if req.anime_name not in db[nick]["likes"]:
             db[nick]["likes"].append(req.anime_name)
-            db[nick]["mrr"] = float(req.mrr)
-            save_db(db)
+        
+        if "genre_profile" not in db[nick]: db[nick]["genre_profile"] = {}
+        
+        genres = kg.get_anime_genres(req.anime_name)
+
+        for g in genres:
+            current_count = db[nick]["genre_profile"].get(g, 0)
+            db[nick]["genre_profile"][g] = current_count + 1
+
+        db[nick]["mrr"] = float(req.mrr)
+            
+        save_db(db)
+        
     return {"status": "success"}
+
+@app.get("/user/recommendations/{nick}")
+def get_user_recs(nick: str):
+    db = load_db()
+    nick = nick.lower()
+    
+    if nick not in db:
+        return {"results": [], "profile": {}}
+    
+    user_data = db[nick]
+    profile = user_data.get("genre_profile", {})
+    exclude = user_data.get("likes", []) + user_data.get("disliked_animes", [])
+    
+    recs = kg.recommend_by_profile(profile, top_k=10, exclude=exclude)
+    
+    return {"results": recs, "profile": profile}
 
 @app.post("/user/dislike")
 def add_dislike(req: InteractionRequest):
@@ -93,7 +121,7 @@ def add_user(req: ReviewRequest):
     db = load_db()
     nick = req.nick.lower()
     if nick not in db:
-        db[nick] = {"comments": [], "disliked_animes": [], "likes": [], "total_animes": 0, "mrr": 0.0}
+        db[nick] = {"comments": [], "disliked_animes": [], "likes": [], "total_animes": 0, "mrr": 0.0, "genre_profile": {}}
         save_db(db)
     return {"status": "success", "data": db[nick]} 
 
@@ -102,7 +130,7 @@ def add_user(req: ReviewRequest):
     db = load_db()
     nick = req.nick.lower()
     if nick in db:
-        db[nick] = {"comments": [], "disliked_animes": [], "likes": [], "total_animes": 0, "mrr": 0.0}
+        db[nick] = {"comments": [], "disliked_animes": [], "likes": [], "total_animes": 0, "mrr": 0.0, "genre_profile" : {}}
         save_db(db)
     return {"status": "success", "data": db[nick]} 
 

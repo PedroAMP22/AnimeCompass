@@ -203,3 +203,66 @@ class KGEngine:
             
         results = sorted(results, key=lambda x: x["score"], reverse=True)[:k]
         return results
+    
+    def get_anime_genres(self, anime_name):
+        """Devuelve la lista de géneros usando el DataFrame."""
+        # Filtramos el DF por nombre exacto
+        row = self.df[self.df['Name'] == anime_name]
+        if not row.empty:
+            genres = row.iloc[0]['Genres']
+            # Aseguramos que sea una lista (a veces pandas carga listas como strings)
+            if isinstance(genres, set):
+                return list(genres)
+            elif isinstance(genres, list):
+                return genres
+            elif isinstance(genres, str):
+                clean = genres.replace("{", "").replace("}", "").replace("'", "").replace('"', "")
+                return [g.strip() for g in clean.split(',')]
+        return []
+
+    def recommend_by_profile(self, user_profile, top_k=10, exclude=[]):
+        """
+        Recomienda usando el DataFrame y el perfil de usuario.
+        user_profile = {"Action": 5, "Comedy": 2, ...}
+        """
+        candidates = []
+        exclude_set = set(exclude)
+
+        for idx, row in self.df.iterrows():
+            name = row['Name']
+            
+            if name in exclude_set:
+                continue
+                
+            score = 0
+            raw_genres = row.get('Genres') # Quitamos el default [] aquí para chequear tipos abajo
+            
+            # --- CORRECCIÓN DE TIPOS ---
+            anime_genres = []
+            
+            if isinstance(raw_genres, set):
+                anime_genres = list(raw_genres) # Convertimos set a lista
+            elif isinstance(raw_genres, list):
+                anime_genres = raw_genres
+            elif isinstance(raw_genres, str):
+                # Por si acaso hay algún string suelto
+                clean = raw_genres.replace("{", "").replace("}", "").replace("'", "")
+                anime_genres = [g.strip() for g in clean.split(',')]
+            # ---------------------------
+
+            # Ahora anime_genres ya es una lista iterable segura
+            for genre in anime_genres:
+                if genre in user_profile:
+                    score += user_profile[genre]
+            
+            if score > 0:
+                candidates.append({
+                    "name": name,
+                    "score": score,
+                    # Aseguramos que sea string para el join
+                    "details": f"Coincide con: {', '.join(str(g) for g in anime_genres[:3])}"
+                })
+        
+        # Ordenar y cortar
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates[:top_k]
