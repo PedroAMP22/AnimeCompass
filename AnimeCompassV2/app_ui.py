@@ -19,6 +19,11 @@ st.set_page_config(
 )
 API_URL = "http://localhost:8000/"
 
+try:
+    st.logo("../img/logo_sinFondo.png", icon_image="../img/logo_sinFondo.png")
+except:
+    pass
+
 # Inicialización de estado
 init_states = {
     "llm": OllamaClient(model="llama3.2"),
@@ -149,6 +154,10 @@ if "user_nick" not in st.session_state:
     with col_login:
         st.markdown("<br><br>", unsafe_allow_html=True)
         with st.container(border=True):
+            c1, c2, c3 = st.columns([1, 2, 1]) # Columnas para centrar la imagen
+            with c2:
+                st.image("../img/logo_sinFondo.png", width="stretch") 
+
             st.markdown("<h1 style='text-align: center;'>🧭 AnimeCompass</h1>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: gray;'>Tu brújula para navegar el mundo del anime con IA.</p>", unsafe_allow_html=True)
             st.divider()
