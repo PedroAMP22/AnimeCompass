@@ -1,6 +1,10 @@
+
+# Módulo: Cliente LLM (Ollama Wrapper)
+# Descripción: Gestiona la comunicación el modelo Llama 3.2. Incluye lógica
+# para extracción estricta de entidades en lasq queries y generación de respuestas conversacionales.
+
 import requests
-import json
-import re
+
 class OllamaClient:
     def __init__(self, model="llama3.2", base_url="http://localhost:11434"):
         self.base_url = f"{base_url}/api/generate"
@@ -28,9 +32,9 @@ class OllamaClient:
         """
         Router más permisivo para Llama 3.2
         """
-        print(f"\n🤔 Router pensando sobre: '{query}'...")
+        print(f"\nRouter pensando sobre: '{query}'...")
         
-        # Prompt simplificado para evitar confusiones del modelo
+        # Prompt simple, evita confusiones
         prompt = f"""
         Tu única tarea es clasificar si el usuario menciona 'anime', series japonesas o pide recomendaciones.
         Texto: "{query}"
@@ -38,23 +42,22 @@ class OllamaClient:
         """
         
         ans = self._call(prompt, temp=0.0).strip().upper()
-        print(f"🤖 El modelo dice: '{ans}'") # VER ESTO EN TERMINAL ES CLAVE
+        print(f"El modelo dice: '{ans}'")
         
-        # Lógica permisiva: Si dice SI, YES, o menciona ANIME, activamos la tool
         activar = "SI" in ans or "YES" in ans or "SÍ" in ans or "ANIME" in ans
         
         if activar:
-            print("✅ Decisión: CONSULTAR BASE DE DATOS")
+            print("Decisión: CONSULTAR BASE DE DATOS")
         else:
-            print("❌ Decisión: CHARLA NORMAL")
+            print("Decisión: CHARLA NORMAL")
             
         return activar
     
     def extract_anime_name(self, query):
         """Extrae solo el nombre del anime de la frase"""
-        print(f"⛏️ Extrayendo entidad de: '{query}'...")
+        print(f"Extrayendo entidad de: '{query}'...")
         
-        # PROMPT CAMBIADO: Enfoque "Copy-Paste" con ejemplos neutros
+        # Promt engineering
         prompt = f"""
         Actúa como un extractor de subcadenas. Tu trabajo es COPIAR Y PEGAR el nombre del anime que aparece en el texto.
         
@@ -78,25 +81,22 @@ class OllamaClient:
             
         name = name.replace(".", "").replace('"', '').replace("'", "").strip()
         
-        # --- REGLA ANTI-ALUCINACIÓN (CRÍTICA) ---
-        # Si el nombre extraído NO está en la frase original, el modelo ha alucinado (ej: dijo Naruto cuando la frase era Bleach)
+        # --- REGLA ANTI-ALUCINACIÓN  ---
+        # Si el nombre extraído no está en la frase original, el modelo ha alucinado
         if name.lower() not in query.lower():
-            print(f"⚠️ ALERTA: El modelo alucinó '{name}' pero no está en la frase '{query}'.")
+            print(f"ALERTA: El modelo alucinó '{name}' pero no está en la frase '{query}'.")
             
-            # Fallback de emergencia: Buscamos si las palabras de la frase coinciden con algo conocido
-            # O simplemente devolvemos lo que tenemos si se parece mucho, si no, NULL.
-            # Para este caso, vamos a ser estrictos:
-            
+            # En caso de fallo de emergencia buscamos si las palabras de la frase coinciden con algo conocido
             # Intento de recuperación simple: si la frase es corta (ej "Bleach"), asumimos que es el nombre
             if len(query.split()) <= 2:
                 name = query
-                print(f"⚠️ Recuperado usando la query completa: '{name}'")
+                print(f"WARNING: Recuperado usando la query completa: '{name}'")
             else:
-                # Si alucinó algo totalmente distinto, mejor fallar que buscar mal
-                print("❌ Descartando alucinación.")
+                # Si alucinó algo totalmente distinto, dev null
+                print("ERROR: Descartando alucinación.")
                 return "NULL"
 
-        print(f"💎 Entidad extraída: '{name}'")
+        print(f"Entidad extraída: '{name}'")
         return name
 
     def prompt(self, system, user):

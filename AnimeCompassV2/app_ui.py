@@ -1,3 +1,8 @@
+
+# Módulo: Interfaz de Usuario (Frontend)
+# Descripción: Aplicación principal construida con Streamlit. Gestiona la sesión del usuario,
+# el chat interactivo, la visualización de recomendaciones y la comunicación con el servidor API.
+
 import streamlit as st
 import requests
 from llm_client import OllamaClient
@@ -19,8 +24,13 @@ init_states = {
     "ya_interactuado": set(),
     "rr_sum": 0.0,   
     "queries_con_like": 0,
-    "sesiones_con_feedback": set()
+    "sesiones_con_feedback": set(),
+    "mrr": 0,
 }
+# --- TOP NAVIGATION BAR ---
+col_title, col_btn = st.columns([3, 1])
+with col_title:
+    st.title("🧭 AnimeCompass V2")
 
 for key, value in init_states.items():
     if key not in st.session_state:
@@ -39,7 +49,7 @@ def mark_as_disliked(anime_name):
                 payload = {"nick": st.session_state.user_nick, "anime_name": anime_name}
                 requests.post(f"{API_URL}/user/dislike", json=payload)
             except:
-                pass # Silencioso o st.error
+                pass
         
         st.toast(f"👎 Ocultando: {anime_name}")
 
@@ -58,38 +68,36 @@ def mark_as_liked(anime_name, rank, msg_idx):
         # Guardar en base de datos REAL (API)
         if "user_nick" in st.session_state:
             try:
-                payload = {"nick": st.session_state.user_nick, "anime_name": anime_name}
+                payload = {"nick": st.session_state.user_nick, "anime_name": anime_name, "mrr": st.session_state.rr_sum / st.session_state.total_likes }
                 requests.post(f"{API_URL}/user/like", json=payload)
             except:
                 pass
 
         st.toast(f"❤️ ¡Añadido a favoritos! (Rank: {rank})")
 
-@st.dialog("Community Reviews")
+# Comentarios
+@st.dialog("Reviews de la Comunidad")
 def show_review_modal():
-    st.subheader("Post a Review")
-    new_comment = st.text_area("What do you think of AnimeCompass?", height=100) # Se llama new_comment
-    if st.button("Submit Review"):
+    # Publicar comentario
+    st.subheader("Publica tu review")
+    new_comment = st.text_area("¿Que piensas de Anime Compass?", height=100) 
+    if st.button("Enviar"):
         if "user_nick" in st.session_state:
-            # CAMBIO: Usar new_comment aquí
             payload = {"nick": st.session_state.user_nick, "comment": new_comment} 
             try:
                 requests.post(API_URL + "reviews/add", json=payload)
-                st.toast("Review Sent!")
-                # Opcional: st.rerun() para que aparezca la review recién puesta
+                st.toast("Review enviada")
             except:
                 st.error("Server offline")
 
     st.divider()
 
-    # 2. Read section
-    st.subheader("What others are saying")
+    # Comentarios publicados
+    st.subheader("Lo que opina nuestra comunidad")
     try:
         response = requests.get(API_URL + "reviews").json()
-        # reviews_list ahora es una LISTA, no un diccionario
         reviews_list = response.get("reviews", [])
 
-        # Si quieres mostrar los últimos comentarios primero
         for review in reversed(reviews_list):
             user = review["nick"]
             content = review["text"]
@@ -97,17 +105,17 @@ def show_review_modal():
             with st.chat_message("user"):
                 st.write(f"**{user}** dice:")
                 st.write(content.strip())
-                # st.divider() # Opcional
     except:
-        st.write("No reviews yet. Be the first!")
+        st.write("No hay nada. ¡Se el primero!")
 
     if st.button("Close"):
         st.rerun()
 
+
 # --- LOGIN ----
 if "user_nick" not in st.session_state:
     with st.form("login_form"):
-        nick = st.text_input("Introduce your Nick to start:")
+        nick = st.text_input("Introduce tu nickname: ")
         if st.form_submit_button("Login / Register"):
             if nick:
                 try:
@@ -126,19 +134,19 @@ if "user_nick" not in st.session_state:
                     # También marcamos como interactuados para que no salgan botones de nuevo
                     past_likes = user_info.get("likes", [])
                     st.session_state.ya_interactuado = set(past_dislikes + past_likes)
+                    st.session_state.total_likes = len(past_likes)
+
+                    # Cargamos las métricas
+                    st.session_state.mrr = user_info.get("mrr", 0)
+                    st.session_state.total_recs = user_info.get("total_animes", 0)
                     # ------------------------------------
 
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error de conexión: {e}")
             else:
-                st.error("Please enter a nickname.")
+                st.error("Por favor, introduce tu nick.")
     st.stop()
-
-# --- TOP NAVIGATION BAR ---
-col_title, col_btn = st.columns([3, 1])
-with col_title:
-    st.title("🧭 AnimeCompass V2")
 
 with col_btn:
     if st.button("💬 Open Reviews", width="stretch"):
@@ -148,15 +156,12 @@ with col_btn:
 with st.sidebar:
     st.header(f"👤 Bienvenido, {st.session_state.user_nick}")
     if st.button("Logout / Change Nick", width="stretch"):
-        # 1. Eliminamos la identidad
+        # Eliminamos la identidad
         if "user_nick" in st.session_state:
             del st.session_state.user_nick
         
-        # 2. Reiniciamos todas las variables de estado a sus valores originales
-        # Usamos el diccionario init_states que definiste al principio del script
+        # Reiniciamos todas las variables de estado a sus valores originales
         for key, value in init_states.items():
-            # Para evitar problemas con objetos mutables (listas/sets), 
-            # reiniciamos con copias nuevas si es necesario.
             if isinstance(value, list):
                 st.session_state[key] = []
             elif isinstance(value, set):
@@ -164,7 +169,7 @@ with st.sidebar:
             else:
                 st.session_state[key] = value
                 
-        # 3. Forzamos el reinicio para volver a la pantalla de login
+        # Forzamos el reinicio para volver a la pantalla de login
         st.rerun()
 
     st.divider()
@@ -180,9 +185,9 @@ with st.sidebar:
     st.metric("🎯 User Precision", f"{precision:.1f}%", help="Porcentaje total de likes sobre recomendaciones mostradas.")
     
     # 2. MRR (Mean Reciprocal Rank)
-    mrr = (st.session_state.rr_sum / st.session_state.queries_con_like) if st.session_state.queries_con_like > 0 else 0
-    st.metric("🏆 MRR", f"{mrr:.3f}", help="Mide qué tan arriba aparecen los animes que te gustan. 1.0 es perfecto.")
-    st.progress(min(mrr, 1.0))
+    st.session_state.mrr = (st.session_state.rr_sum / st.session_state.queries_con_like) if st.session_state.queries_con_like > 0 else st.session_state.mrr
+    st.metric("🏆 MRR", f"{st.session_state.mrr:.3f}", help="Mide qué tan arriba aparecen los animes que te gustan. 1.0 es perfecto.")
+    st.progress(min(st.session_state.mrr, 1.0))
 
     # 3. Confianza del Grafo
     last_msg = next((m for m in reversed(st.session_state.messages) if "data" in m and m["data"]), None)
@@ -191,11 +196,15 @@ with st.sidebar:
         st.metric("🔗 Confianza Grafo", f"{avg_score:.3f}")
 
     st.divider()
-    if st.button("🗑️ Reiniciar Sesión", width='stretch'):
+    if st.button("🗑️ Reiniciar Usuario", width='stretch'):
         for key in init_states.keys():
             if key == "ya_interactuado": st.session_state[key] = set()
             elif key == "sesiones_con_feedback": st.session_state[key] = set()
             else: st.session_state[key] = init_states[key]
+        
+        payload = {"nick": st.session_state.user_nick,  "comment": ""}
+        requests.post(f"{API_URL}/user/reset", json=payload)
+
         st.rerun()
         
 
@@ -259,6 +268,7 @@ if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
                     st.write(f"🔍 Calculando similitud para: **{anime_name}**")
                     try:
                         payload = {
+                            "nick": st.session_state.user_nick,
                             "query": anime_name, 
                             "top_k": top_k_selector,
                             "exclude": st.session_state.excluded_animes
@@ -270,7 +280,7 @@ if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
                 else:
                     status.update(label="No pude identificar un anime en tu mensaje.", state="error")
 
-                # configuramos la salida según los resultados
+                # 2. Configuramos la salida según los resultados
                 if results:
                     st.session_state.total_recs += len(results)
                     table_data = results

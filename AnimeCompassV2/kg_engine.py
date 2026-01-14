@@ -1,3 +1,8 @@
+
+# Módulo: Motor del Grafo de Conocimiento
+# Descripción: Carga y gestiona el grafo de animes. Contiene los algoritmos
+# de búsqueda semántica, filtrado y cálculo de puntuaciones de similitud.
+
 import os
 import torch
 import pickle
@@ -6,7 +11,7 @@ import pandas as pd
 import difflib
 import math
 
-# Prefijo definido en tu end.ttl
+# Prefijo definido
 ONTO_PREFIX = "http://www.fdi.ucm.es/mia/sbc/animeontology/"
 
 class KGEngine:
@@ -14,7 +19,7 @@ class KGEngine:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.data_path = os.path.normpath(os.path.join(current_dir, relative_folder_path))
         
-        print(f"⚙️ Cargando motor híbrido desde: {self.data_path}")
+        print(f"Cargando motor híbrido desde: {self.data_path}")
         
         try:
             # Cargar Modelo
@@ -46,17 +51,17 @@ class KGEngine:
                 # Rellenar columnas faltantes
                 if 'Studio' not in self.df.columns: self.df['Studio'] = None
                 
-                print(f"✅ DataFrame listo. Total animes: {len(self.df)}")
+                print(f"CORRECT DataFrame listo. Total animes: {len(self.df)}")
 
             # Embeddings
             embeddings = self.model.entity_representations[0](indices=None).detach().cpu().numpy()
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
             self.entity_embeddings = embeddings / (norms + 1e-9)
             
-            print("✅ KG Engine Híbrido listo.")
+            print("CORRECT KG Engine Híbrido listo.")
             
         except Exception as e:
-            print(f"❌ Error fatal: {e}")
+            print(f"ERROR: Error fatal: {e}")
             raise e
 
     def _find_best_match(self, user_query):
@@ -76,13 +81,12 @@ class KGEngine:
             if search_key in u: return eid
         return None
 
-    # --- HEURÍSTICAS BLINDADAS (Si falla una, devuelve 0 solo en esa parte) ---
+    # --- HEURÍSTICAS  ---
 
     def _is_valid(self, val):
         """Devuelve True si el valor no es None ni NaN"""
         if val is None: return False
         if isinstance(val, float) and (math.isnan(val) or math.isinf(val)): return False
-        # Si es string "nan" o vacío
         if isinstance(val, str) and (val.lower() == 'nan' or val.strip() == ''): return False
         return True
 
@@ -91,7 +95,7 @@ class KGEngine:
         if not self._is_valid(val_a) or not self._is_valid(val_b): return 0.0
         
         try:
-            # Asegurar listas
+            # Listas
             set_a = set(val_a) if isinstance(val_a, (list, set, tuple)) else set([val_a])
             set_b = set(val_b) if isinstance(val_b, (list, set, tuple)) else set([val_b])
             
@@ -111,7 +115,6 @@ class KGEngine:
         """Para Episodios"""
         if not self._is_valid(val_a) or not self._is_valid(val_b): return 0.0
         try:
-            # Convertir a float seguro
             a = float(val_a)
             b = float(val_b)
             diff = abs(a - b)
@@ -130,14 +133,14 @@ class KGEngine:
         except: return 0.0
 
     def _calculate_heuristic_score(self, target, candidate):
-        # Calculamos cada parte por separado. Si una falla, devuelve 0.0 y no rompe el resto.
+        # Calculamos cada parte por separado. Si una falla, devuelve 0.0
         s_genres = self._jaccard(target.get('Genres'), candidate.get('Genres'))
         s_studio = self._exact_match(target.get('Studio'), candidate.get('Studio'))
         s_actors = self._jaccard(target.get('VoiceActors'), candidate.get('VoiceActors'))
         s_episodes = self._exp_decay(target.get('Episodes'), candidate.get('Episodes'))
         s_year = self._linear_decay(target.get('Year'), candidate.get('Year'))
         
-        # Suma ponderada (Aquí NO se anulan entre sí)
+        # Suma ponderada
         total = (s_genres * 0.7) + (s_studio * 0.10) + (s_actors * 0.05) + \
                 (s_episodes * 0.05) + (s_year * 0.1)
         
@@ -155,10 +158,10 @@ class KGEngine:
         if exclude_list is None:
             exclude_list = []
 
-        print(f"\n🔍 Buscando: '{query_text}' (Excluyendo {len(exclude_list)} items)")
+        print(f"\nBuscando: '{query_text}' (Excluyendo {len(exclude_list)} items)")
         target_name = self._find_best_match(query_text)
         if not target_name: 
-            print("❌ No encontrado en DF")
+            print("ERROR No encontrado en DF")
             return []
 
         target_row = self.df[self.df['Name'] == target_name].iloc[0]
@@ -199,38 +202,4 @@ class KGEngine:
             })
             
         results = sorted(results, key=lambda x: x["score"], reverse=True)[:k]
-        return results
-
-    def discover_animes(self, filters, k=5, exclude_list=None) :
-        """Búsqueda directa por atributos en el DataFrame"""
-        if exclude_list is None: exclude_list = []
-        temp_df = self.df.copy() 
-
-        # 1. Filtro estricto de Año
-        if filters.get('year'):
-            temp_df = temp_df[temp_df['Year'] == float(filters['year'])]
-
-        # 2. Filtro de Géneros con limpieza
-        if filters.get('genres'):
-            for genre_buscado in filters['genres']:
-                # Normalizamos: "Adventure" -> "adventure"
-                g_search = genre_buscado.lower()
-                
-                # Verificamos si el género está contenido en la lista/set de la fila
-                temp_df = temp_df[temp_df['Genres'].apply(
-                    lambda x: any(g_search in str(g).lower() for g in x) 
-                    if isinstance(x, (list, set, tuple)) else False
-                )]
-
-        results = []
-        for _, row in temp_df.iterrows():
-            cand_name = row['Name']
-            if cand_name in exclude_list: continue
-            results.append({
-                "name": row['Name'],
-                "score": 1.0, # Puntuación máxima por coincidencia exacta de filtro
-                "details": f"Géneros: {row['Genres']}, Año: {row['Year']}"
-            })
-        
-        results = sorted(results, key=lambda x: x["name"], reverse=True)[:k]
         return results

@@ -1,3 +1,8 @@
+
+# Módulo: Gestión de Base de Datos
+# Descripción: Funciones utilitarias para la gestion de datos en archivos JSON.
+# Maneja la carga y guardado de usuarios, historial de likes/dislikes y reviews.
+
 import json
 import os
 

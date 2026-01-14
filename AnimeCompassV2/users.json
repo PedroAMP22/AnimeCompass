@@ -3,69 +3,68 @@
         "comments": [],
         "disliked_animes": [
             "Hunter_x_Hunter_Greed_Island_Final",
-            "Hunter_x_Hunter",
-            "Tomorrows_Joe",
-            "Tomorrows_Joe_2",
-            "Serial_Experiments_Lain",
-            "Star_Blazers_The_Quest_for_Iscandar",
-            "Shining_Tears_X_Wind",
-            "Martian_Successor_Nadesico_The_Prince_of_Darkness",
-            "Perfect_Blue",
-            "Mobile_Suit_Gundam_SEED_Destiny",
-            "RahXephon",
-            "Digimon_Digital_Monsters"
+            "Hunter_x_Hunter"
         ],
         "likes": [
-            "Naruto_Shippuden",
-            "Tiger_Mask",
-            "Digimon_Adventure_02",
             "Battle_Doll_Angelic_Layer",
-            "Infinite_Ryvius",
-            "DGrayman",
-            "Bakegyamon",
-            "RahXephon"
-        ]
+            "Naruto_Shippuden",
+            "Digimon_Adventure_02"
+        ],
+        "total_animes": 10,
+        "mrr": 0.3333333333333333
     },
     "goku24": {
         "comments": [
             "Muy util la p\u00e1gina"
         ],
         "disliked_animes": [],
-        "likes": []
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0
     },
     "ana_otaku03": {
         "comments": [
             "No ven\u00eda con muchas expectativas pero estoy impresionada"
         ],
         "disliked_animes": [],
-        "likes": []
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0
     },
     "lucichan": {
         "comments": [
             "Me ha sorprendido"
         ],
         "disliked_animes": [],
-        "likes": []
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0
     },
     "xxalvarocrackxx": {
         "comments": [
             "A esto lo llama inteligencia artifical? Pat\u00e9tico"
         ],
         "disliked_animes": [],
-        "likes": []
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0
     },
     "belen": {
         "comments": [
             "Reply to @juanant: Cierto"
         ],
         "disliked_animes": [],
-        "likes": []
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0
     },
     "juanant": {
         "comments": [
             "A estos chicos hay que ponerles un 10"
         ],
         "disliked_animes": [],
-        "likes": []
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0
     }
 }
