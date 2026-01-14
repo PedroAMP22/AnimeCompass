@@ -61,6 +61,9 @@ def mark_as_liked(anime_name, rank, msg_idx):
             st.session_state.rr_sum += reciprocal_rank
             st.session_state.queries_con_like += 1
             st.session_state.sesiones_con_feedback.add(msg_idx)
+
+            if st.session_state.queries_con_like > 0:
+                st.session_state.mrr = st.session_state.rr_sum / st.session_state.queries_con_like
             
         st.session_state.total_likes += 1
         st.session_state.ya_interactuado.add(anime_name)
@@ -68,7 +71,7 @@ def mark_as_liked(anime_name, rank, msg_idx):
         # Guardar en base de datos REAL (API)
         if "user_nick" in st.session_state:
             try:
-                payload = {"nick": st.session_state.user_nick, "anime_name": anime_name, "mrr": st.session_state.rr_sum / st.session_state.total_likes }
+                payload = {"nick": st.session_state.user_nick, "anime_name": anime_name, "mrr": st.session_state.mrr }
                 requests.post(f"{API_URL}/user/like", json=payload)
             except:
                 pass

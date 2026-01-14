@@ -1,17 +1,10 @@
 {
     "pedro": {
         "comments": [],
-        "disliked_animes": [
-            "Hunter_x_Hunter_Greed_Island_Final",
-            "Hunter_x_Hunter"
-        ],
-        "likes": [
-            "Battle_Doll_Angelic_Layer",
-            "Naruto_Shippuden",
-            "Digimon_Adventure_02"
-        ],
-        "total_animes": 10,
-        "mrr": 0.3333333333333333
+        "disliked_animes": [],
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0.0
     },
     "goku24": {
         "comments": [
