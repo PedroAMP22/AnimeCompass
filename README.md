@@ -1,10 +1,19 @@
-# 🧭 AnimeCompass V2
+<div align="center">
+  <img src="./img/logo_sinFondo.png" alt="AnimeCompass Logo" width="200">
+  <h1>AnimeCompass V2</h1>
+</div>
+
+<div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Llama_3.2-Local_LLM-orange?style=for-the-badge)
+
+</div>
+
+<br>
 
 > **Un sistema de recomendación Neuro-Simbólico que combina la precisión de los Grafos de Conocimiento con la naturalidad de la IA Generativa.**
 
