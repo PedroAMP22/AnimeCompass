@@ -390,7 +390,7 @@ with tab_chat:
     # --- LÓGICA DE ENTRADA ---
     if prompt := st.chat_input("Ej: Algo parecido a Evangelion"):
         st.session_state.messages.append({"role": "user", "content": prompt})
-
+        sys_prompt = ""
         with st.chat_message("user"):
             st.markdown(prompt)
 

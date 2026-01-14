@@ -1,44 +1,34 @@
 {
     "pedro": {
-        "comments": [
-            "Esta p\u00e1gina es brutal"
-        ],
-        "disliked_animes": [
-            "Rayearth"
-        ],
+        "comments": [],
+        "disliked_animes": [],
         "likes": [
-            "Scrapped_Princess",
-            "Sore_Ike_Anpanman",
-            "MegaMan_NT_Warrior_Axess",
-            "Gokudo",
-            "Bobobobo_Bobobo",
-            "Naruto_Shippuden",
-            "Hunter_x_Hunter_Greed_Island_Final",
-            "Hunter_x_Hunter",
-            "Digimon_Adventure_02",
-            "DGrayman",
-            "Shining_Tears_X_Wind",
-            "Bakegyamon",
-            "Digimon_Digital_Monsters",
-            "Hero_Tales",
-            "The_Twelve_Kingdoms",
-            "Network_Kouenji_Studio",
-            "Boin",
-            "Slayers",
-            "Lyrics",
-            "Reborn",
-            "Karas"
+            "Battle_Doll_Angelic_Layer",
+            "Infinite_Ryvius",
+            "RahXephon",
+            "Serial_Experiments_Lain",
+            "Star_Blazers_The_Quest_for_Iscandar",
+            "Boogiepop_Phantom",
+            "Paranoia_Agent",
+            "Ghost_in_the_Shell_2_Innocence",
+            "Gankutsuou_The_Count_of_Monte_Cristo",
+            "Ghost_in_the_Shell"
         ],
-        "total_animes": 25,
-        "mrr": 0.43333333333333335,
+        "total_animes": 10,
+        "mrr": 1.0,
         "genre_profile": {
-            "scifi_anime": 4,
-            "adventure_anime": 15,
-            "fantasy_anime": 15,
-            "drama_anime": 1,
-            "comedy_anime": 8,
-            "action_anime": 14,
-            "hentai_anime": 1
+            "comedy_anime": 1,
+            "scifi_anime": 8,
+            "award_winning_anime": 9,
+            "drama_anime": 8,
+            "suspense_anime": 7,
+            "mystery_anime": 7,
+            "romance_anime": 1,
+            "avant_garde_anime": 3,
+            "supernatural_anime": 4,
+            "adventure_anime": 1,
+            "action_anime": 1,
+            "horror_anime": 1
         }
     },
     "goku24": {
@@ -116,5 +106,46 @@
             "adventure_anime": 4,
             "comedy_anime": 1
         }
+    },
+    "otakumaster": {
+        "comments": [
+            "Esta pagina es awesome"
+        ],
+        "disliked_animes": [
+            "Infinite_Ryvius",
+            "RahXephon"
+        ],
+        "likes": [
+            "Karas",
+            "Rayearth",
+            "Birth",
+            "Battle_Doll_Angelic_Layer",
+            "Serial_Experiments_Lain",
+            "Star_Blazers_The_Quest_for_Iscandar",
+            "Martian_Successor_Nadesico_The_Prince_of_Darkness"
+        ],
+        "total_animes": 11,
+        "mrr": 0.8333333333333334,
+        "genre_profile": {
+            "scifi_anime": 6,
+            "action_anime": 3,
+            "fantasy_anime": 2,
+            "adventure_anime": 3,
+            "comedy_anime": 2,
+            "award_winning_anime": 4,
+            "drama_anime": 4,
+            "avant_garde_anime": 1,
+            "supernatural_anime": 1,
+            "suspense_anime": 1,
+            "mystery_anime": 1
+        }
+    },
+    "usuarionuevo32": {
+        "comments": [],
+        "disliked_animes": [],
+        "likes": [],
+        "total_animes": 0,
+        "mrr": 0.0,
+        "genre_profile": {}
     }
 }
