@@ -10,7 +10,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Llama_3.2-Local_LLM-orange?style=for-the-badge)
-
+![License](https://img.shields.io/badge/License-Non--Commercial-orange?style=for-the-badge)
 </div>
 
 <br>
@@ -115,6 +115,22 @@ streamlit run app_ui.py
 *   [ ] Implementación de **Graph-Based XAI** para explicar recomendaciones mediante caminos del grafo.
 *   [ ] Pipeline ETL para actualización automática de animes vía API Jikan.
 *   [ ] Filtrado Colaborativo para cruzar perfiles de usuarios similares.
+
+---
+
+## 📜 Licencia
+
+Este proyecto se distribuye bajo una licencia de uso no
+comercial con atribución obligatoria.
+
+Se permite su uso, modificación y redistribución con fines
+educativos, académicos, de investigación y no comerciales,
+siempre que se reconozca la autoría original.
+
+Cualquier uso comercial requiere autorización previa y
+por escrito de los autores.
+
+Consulta el archivo [LICENSE](./LICENSE) para más detalles.
 
 ---
 

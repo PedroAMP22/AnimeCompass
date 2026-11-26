@@ -59,7 +59,7 @@ class OllamaClient:
         
         # Promt engineering
         prompt = f"""
-        Actúa como un extractor de subcadenas. Tu trabajo es COPIAR Y PEGAR el nombre del anime que aparece en el texto.
+        Actúa como un extractor de subcadenas. Tu trabajo es extraer los elementos necesarios de la consulta.
         
         Ejemplos de comportamiento esperado:
         Input: "Quiero ver algo como Akira" -> Akira
